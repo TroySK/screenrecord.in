@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScreenRecord.in</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>ScreenRecord.in</h1>
+        <p>Record your screen, camera, and audio – all local, no backend.</p>
+        <button id="new-recording">New Recording</button>
+        <button id="toggle-sidebar">📁 Saved</button>
+    </header>
+
+    <main id="main-content">
+        <section id="recording-controls" class="panel">
+            <h2>Recording Controls</h2>
+            <div class="config-toggles">
+                <label><input type="checkbox" id="screen-toggle"> Screen Share</label>
+                <label><input type="checkbox" id="camera-toggle"> Camera</label>
+                <label><input type="checkbox" id="mic-toggle"> Microphone</label>
+                <label><input type="checkbox" id="system-audio-toggle"> System Audio</label>
+            </div>
+            <div id="config-summary"></div>
+            <button id="start-recording" disabled>Start Recording</button>
+        </section>
+
+        <section id="preview-area" class="hidden">
+            <video id="preview-video" autoplay muted playsinline></video>
+            <button id="stop-recording" class="prominent" style="display: none;">Stop Recording</button>
+        </section>
+
+        <section id="error-notifications"></section>
+    </main>
+
+    <aside id="sidebar">
+        <h2>Saved Recordings <button id="close-sidebar" class="close-sidebar">&times;</button></h2>
+        <div id="saved-list">
+            <p class="empty-state">No recordings yet. Start your first one!</p>
+        </div>
+        <button id="clear-all">Clear All</button>
+    </aside>
+
+    <div id="modal-player" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <video id="modal-video" controls></video>
+        </div>
+    </div>
+
+    <footer>
+        <p>Local Storage Used: <span id="storage-info">0 MB</span> | <button id="download-last">Download Last (if any)</button></p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
