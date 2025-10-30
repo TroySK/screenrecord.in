@@ -24,6 +24,8 @@ const startBtn = document.getElementById('start-recording');
 const stopBtn = document.getElementById('stop-recording');
 const previewArea = document.getElementById('preview-area');
 const previewVideo = document.getElementById('preview-video');
+const pipInfo = document.getElementById('pip-info');
+const enablePipBtn = document.getElementById('enable-pip');
 const configSummary = document.getElementById('config-summary');
 const sidebar = document.getElementById('sidebar');
 const toggleSidebar = document.getElementById('toggle-sidebar');
@@ -261,6 +263,14 @@ function downloadVideo(blob, filename) {
 
 function stopRecording() {
     isRecording = false;
+    // Close any recording popup
+    if (window.recordingPopup && !window.recordingPopup.closed) {
+        window.recordingPopup.close();
+    }
+    // Exit Picture-in-Picture if active
+    if (document.pictureInPictureElement) {
+        document.exitPictureInPicture().catch(console.error);
+    }
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
     }
@@ -311,6 +321,7 @@ function stopRecording() {
         previewCanvas.remove();
         previewCanvas = null;
     }
+    pipInfo.classList.add('hidden');
     previewVideo.style.display = 'block'; // Ensure video is visible for next time
     previewArea.classList.add('hidden');
     saveVideo();
@@ -546,7 +557,11 @@ async function startRecording() {
 
         mediaRecorder.start();
         isRecording = true;
-        showToast('Recording started...');
+        showToast('Recording started... Keep this tab active for continuous recording.');
+        // Show Picture-in-Picture info if camera is enabled
+        if (config.camera && document.pictureInPictureEnabled) {
+            pipInfo.classList.remove('hidden');
+        }
     } catch (err) {
         showToast(`Failed to start: ${err.message}`, 'error');
     }
@@ -554,9 +569,22 @@ async function startRecording() {
 
 // Handle tab visibility changes for background pause/resume
 document.addEventListener('visibilitychange', () => {
-    if (isRecording && config.screen && config.camera) {
+    if (isRecording) {
         if (document.hidden) {
-            showToast('Tab inactive. Camera may pause. Keep this tab active for continuous recording.', 'warning');
+            showToast('⚠️ Tab inactive - recording may pause. Keep this tab active for continuous recording.', 'warning');
+            // Try to enter Picture-in-Picture for camera video to maintain focus
+            if (cameraVideo && document.pictureInPictureEnabled) {
+                cameraVideo.requestPictureInPicture().then(() => {
+                    showToast('Camera entered Picture-in-Picture mode to maintain recording.', 'info');
+                }).catch(err => {
+                    console.warn('Picture-in-Picture failed:', err);
+                    // Fallback to popup
+                    setTimeout(() => openRecordingPopup(), 100);
+                });
+            } else {
+                // Fallback to popup if PiP not supported
+                setTimeout(() => openRecordingPopup(), 100);
+            }
         } else {
             // Resume videos on tab focus
             if (screenVideo && screenVideo.paused) {
@@ -564,6 +592,10 @@ document.addEventListener('visibilitychange', () => {
             }
             if (cameraVideo && cameraVideo.paused) {
                 cameraVideo.play().catch(console.error);
+            }
+            // Exit Picture-in-Picture if active
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture().catch(console.error);
             }
         }
     }
@@ -600,6 +632,18 @@ newRecording.addEventListener('click', () => {
     stopRecording();
     updateToggles(false);
     configSummary.textContent = 'Select inputs to start';
+});
+
+enablePipBtn.addEventListener('click', () => {
+    if (cameraVideo && !document.pictureInPictureElement) {
+        cameraVideo.requestPictureInPicture().then(() => {
+            showToast('Camera entered Picture-in-Picture mode!', 'success');
+            pipInfo.classList.add('hidden');
+        }).catch(err => {
+            console.error('Picture-in-Picture failed:', err);
+            showToast('Picture-in-Picture not supported or blocked.', 'error');
+        });
+    }
 });
 
 clearAll.addEventListener('click', async () => {
