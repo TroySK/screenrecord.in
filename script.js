@@ -339,11 +339,22 @@ async function getStream() {
     let mixedAudioTrack = null;
 
     if (config.screen) {
+        const controller = new CaptureController();
         try {
             screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
-                audio: config.systemAudio ? { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } : false
+                audio: config.systemAudio ? { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } : false,
+                controller: controller
             });
+            // Check the display surface type
+            const videoTrack = screenStream.getVideoTracks()[0];
+            const settings = videoTrack.getSettings();
+
+            // Only set focus behavior if it's a tab or window (not entire screen)
+            if (settings.displaySurface === 'browser' || settings.displaySurface === 'window') {
+                controller.setFocusBehavior('no-focus-change');
+            }
+
             streams.push(screenStream);
         } catch (err) {
             showToast(`Screen share denied: ${err.message}`, 'error');
