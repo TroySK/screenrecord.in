@@ -285,6 +285,11 @@ function stopRecording() {
     }
     stopBtn.style.display = 'none';
     previewVideo.srcObject = null;
+    if (previewCanvas) {
+        previewCanvas.remove();
+        previewCanvas = null;
+    }
+    previewVideo.style.display = 'block'; // Ensure video is visible for next time
     previewArea.classList.add('hidden');
     saveVideo();
     recordedChunks = [];
