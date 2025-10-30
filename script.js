@@ -7,6 +7,9 @@ let recordingCanvas;
 let previewCanvas;
 let screenVideo;
 let cameraVideo;
+let screenStream;
+let cameraStream;
+let micStream;
 let config = { screen: false, camera: false, mic: false, systemAudio: false };
 let isRecording = false;
 let audioContext = null;
@@ -270,11 +273,17 @@ function stopRecording() {
         }
         if (screenVideo) {
             screenVideo.pause();
+            if (screenVideo.srcObject) {
+                screenVideo.srcObject.getTracks().forEach(track => track.stop());
+            }
             screenVideo.srcObject = null;
             screenVideo = null;
         }
         if (cameraVideo) {
             cameraVideo.pause();
+            if (cameraVideo.srcObject) {
+                cameraVideo.srcObject.getTracks().forEach(track => track.stop());
+            }
             cameraVideo.srcObject = null;
             cameraVideo = null;
         }
@@ -282,6 +291,19 @@ function stopRecording() {
             audioContext.close();
             audioContext = null;
         }
+    }
+    // Stop individual streams to revoke permissions
+    if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+        screenStream = null;
+    }
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    if (micStream) {
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
     }
     stopBtn.style.display = 'none';
     previewVideo.srcObject = null;
@@ -307,7 +329,7 @@ async function getStream() {
 
     if (config.screen) {
         try {
-            const screenStream = await navigator.mediaDevices.getDisplayMedia({
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
                 audio: config.systemAudio ? { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } : false
             });
@@ -320,7 +342,7 @@ async function getStream() {
 
     if (config.camera) {
         try {
-            const cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
             streams.push(cameraStream);
         } catch (err) {
             showToast(`Camera access denied: ${err.message}`, 'error');
@@ -330,13 +352,16 @@ async function getStream() {
 
     if (config.mic) {
         try {
-            audioStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
             if (streams.length === 0) streams.push(new MediaStream()); // Empty video if only audio
         } catch (err) {
             showToast(`Microphone access denied: ${err.message}`, 'error');
             return null;
         }
     }
+
+    // Store audioStream for later use
+    audioStream = micStream;
 
     if (streams.length === 0) return null;
 
