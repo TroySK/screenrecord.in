@@ -14,6 +14,7 @@ let config = { screen: false, camera: false, mic: false, systemAudio: false };
 let isRecording = false;
 let audioContext = null;
 let currentVideoId = null;
+let draftInterval = null;
 
 // DOM elements
 const screenToggle = document.getElementById('screen-toggle');
@@ -39,6 +40,280 @@ const closeSidebar = document.getElementById('close-sidebar');
 const storageInfo = document.getElementById('storage-info');
 const errorNotifications = document.getElementById('error-notifications');
 const downloadLast = document.getElementById('download-last');
+
+// ============================================
+// MEMORY MANAGEMENT & PERFORMANCE MODULE
+// ============================================
+
+// Object URL Manager - tracks and auto-revokes URLs
+const URLManager = {
+    urls: new Set(),
+    maxURLs: 100,
+    
+    create(url) {
+        if (this.urls.size >= this.maxURLs) {
+            console.warn('URLManager: Max URL limit reached, revoking oldest');
+            this.revokeOldest();
+        }
+        this.urls.add(url);
+        return url;
+    },
+    
+    revoke(url) {
+        if (this.urls.has(url)) {
+            URL.revokeObjectURL(url);
+            this.urls.delete(url);
+        }
+    },
+    
+    revokeAll() {
+        this.urls.forEach(url => {
+            try {
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                // Ignore errors during cleanup
+            }
+        });
+        this.urls.clear();
+    },
+    
+    revokeOldest() {
+        const oldest = this.urls.values().next().value;
+        if (oldest) {
+            this.revoke(oldest);
+        }
+    },
+    
+    size() {
+        return this.urls.size;
+    }
+};
+
+// Audio Context Manager - ensures proper cleanup
+const AudioContextManager = {
+    contexts: new Set(),
+    
+    create() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.contexts.add(ctx);
+            return ctx;
+        } catch (e) {
+            console.warn('AudioContext creation failed:', e);
+            return null;
+        }
+    },
+    
+    close(ctx) {
+        if (this.contexts.has(ctx)) {
+            try {
+                ctx.close().then(() => {
+                    this.contexts.delete(ctx);
+                }).catch(e => {
+                    // Context might already be closed
+                    this.contexts.delete(ctx);
+                });
+            } catch (e) {
+                this.contexts.delete(ctx);
+            }
+        }
+    },
+    
+    closeAll() {
+        this.contexts.forEach(ctx => {
+            try {
+                if (ctx.state !== 'closed') {
+                    ctx.close().catch(() => {});
+                }
+            } catch (e) {
+                // Ignore
+            }
+        });
+        this.contexts.clear();
+    },
+    
+    size() {
+        return this.contexts.size;
+    }
+};
+
+// Performance Monitor - tracks memory and frame drops
+const PerformanceMonitor = {
+    frames: 0,
+    droppedFrames: 0,
+    lastFrameTime: 0,
+    recordingStartTime: 0,
+    memorySamples: [],
+    isMonitoring: false,
+    
+    start() {
+        this.frames = 0;
+        this.droppedFrames = 0;
+        this.lastFrameTime = performance.now();
+        this.recordingStartTime = Date.now();
+        this.memorySamples = [];
+        this.isMonitoring = true;
+        
+        // Sample memory every 5 seconds
+        this.memoryInterval = setInterval(() => {
+            this.sampleMemory();
+        }, 5000);
+    },
+    
+    stop() {
+        this.isMonitoring = false;
+        if (this.memoryInterval) {
+            clearInterval(this.memoryInterval);
+            this.memoryInterval = null;
+        }
+    },
+    
+    frame() {
+        if (!this.isMonitoring) return;
+        
+        const now = performance.now();
+        const delta = now - this.lastFrameTime;
+        this.lastFrameTime = now;
+        
+        // Expected frame time at 30fps is ~33ms
+        if (delta > 50) {
+            this.droppedFrames++;
+        }
+        this.frames++;
+    },
+    
+    sampleMemory() {
+        if (!this.isMonitoring) return;
+        
+        // Use performance.memory if available (Chrome only)
+        if (performance.memory) {
+            this.memorySamples.push({
+                timestamp: Date.now(),
+                usedJSHeapSize: performance.memory.usedJSHeapSize,
+                totalJSHeapSize: performance.memory.totalJSHeapSize
+            });
+            
+            // Keep only last 100 samples
+            if (this.memorySamples.length > 100) {
+                this.memorySamples.shift();
+            }
+        }
+    },
+    
+    getStats() {
+        const duration = (Date.now() - this.recordingStartTime) / 1000;
+        const fps = duration > 0 ? (this.frames / duration).toFixed(1) : 0;
+        const dropRate = this.frames > 0 ? ((this.droppedFrames / (this.frames + this.droppedFrames)) * 100).toFixed(1) : 0;
+        
+        let memoryMB = null;
+        if (this.memorySamples.length > 0) {
+            const last = this.memorySamples[this.memorySamples.length - 1];
+            memoryMB = (last.usedJSHeapSize / 1024 / 1024).toFixed(1);
+        }
+        
+        return {
+            fps,
+            dropRate,
+            frames: this.frames,
+            droppedFrames: this.droppedFrames,
+            duration: duration.toFixed(1),
+            memoryMB
+        };
+    },
+    
+    getWarning() {
+        const stats = this.getStats();
+        const warnings = [];
+        
+        if (parseFloat(stats.dropRate) > 5) {
+            warnings.push(`High frame drop rate: ${stats.dropRate}%`);
+        }
+        
+        if (parseFloat(stats.fps) < 20 && stats.fps !== '0.0') {
+            warnings.push(`Low FPS: ${stats.fps}`);
+        }
+        
+        if (stats.memoryMB && parseFloat(stats.memoryMB) > 500) {
+            warnings.push(`High memory usage: ${stats.memoryMB} MB`);
+        }
+        
+        return warnings.length > 0 ? warnings.join('; ') : null;
+    }
+};
+
+// Centralized Cleanup Function - releases all resources
+function cleanupAll() {
+    // Stop draft interval
+    if (draftInterval) {
+        clearInterval(draftInterval);
+        draftInterval = null;
+    }
+    
+    // Cancel animation frames
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+    
+    // Stop media recorder
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+            mediaRecorder.stop();
+        } catch (e) {
+            // Ignore
+        }
+    }
+    
+    // Stop all media streams
+    [mediaStream, screenStream, cameraStream, micStream].forEach(stream => {
+        if (stream) {
+            stream.getTracks().forEach(track => {
+                try {
+                    track.stop();
+                } catch (e) {
+                    // Ignore
+                }
+            });
+        }
+    });
+    
+    // Close audio contexts
+    AudioContextManager.closeAll();
+    audioContext = null;
+    
+    // Revoke all object URLs
+    URLManager.revokeAll();
+    
+    // Clean up video elements
+    [screenVideo, cameraVideo].forEach(video => {
+        if (video) {
+            video.pause();
+            video.srcObject = null;
+            video = null;
+        }
+    });
+    
+    // Remove preview canvas
+    if (previewCanvas) {
+        previewCanvas.remove();
+        previewCanvas = null;
+    }
+    
+    // Reset state
+    mediaStream = null;
+    screenStream = null;
+    cameraStream = null;
+    micStream = null;
+    mediaRecorder = null;
+    recordedChunks = [];
+    recordingCanvas = null;
+    screenVideo = null;
+    cameraVideo = null;
+    isRecording = false;
+    
+    // Stop performance monitoring
+    PerformanceMonitor.stop();
+}
 
 // Utility functions
 function showToast(message, type = 'info') {
@@ -242,7 +517,8 @@ function generateThumbnail(videoBlob) {
         const video = document.createElement('video');
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        video.src = URL.createObjectURL(videoBlob);
+        const videoUrl = URLManager.create(URL.createObjectURL(videoBlob));
+        video.src = videoUrl;
         video.onloadeddata = () => {
             canvas.width = video.videoWidth / 4; // Small thumb
             canvas.height = video.videoHeight / 4;
@@ -250,7 +526,7 @@ function generateThumbnail(videoBlob) {
             video.onseeked = () => {
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 resolve(canvas.toDataURL('image/jpeg', 0.8));
-                URL.revokeObjectURL(video.src);
+                URLManager.revoke(videoUrl);
             };
         };
     });
@@ -290,7 +566,8 @@ async function saveVideo() {
 
     // Get duration
     const tempVideo = document.createElement('video');
-    tempVideo.src = URL.createObjectURL(videoBlob);
+    const tempUrl = URLManager.create(URL.createObjectURL(videoBlob));
+    tempVideo.src = tempUrl;
     let duration = 0;
     try {
         await new Promise((resolve, reject) => {
@@ -306,7 +583,7 @@ async function saveVideo() {
         ErrorHandler.log(err, 'Duration fetch');
         duration = 0;
     }
-    URL.revokeObjectURL(tempVideo.src);
+    URLManager.revoke(tempUrl);
 
     const videoObj = {
         id: Date.now().toString(),
@@ -332,70 +609,87 @@ async function saveVideo() {
 }
 
 function downloadVideo(blob, filename) {
-    const url = URL.createObjectURL(blob);
+    const url = URLManager.create(URL.createObjectURL(blob));
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    URLManager.revoke(url);
 }
 
 function stopRecording() {
     isRecording = false;
+    
+    // Stop draft interval
+    if (draftInterval) {
+        clearInterval(draftInterval);
+        draftInterval = null;
+    }
+    
+    // Stop performance monitoring and get stats
+    PerformanceMonitor.stop();
+    const perfWarning = PerformanceMonitor.getWarning();
+    if (perfWarning) {
+        showToast(`Recording complete. Note: ${perfWarning}`, 'warning');
+    }
+    
     // Close any recording popup
     if (window.recordingPopup && !window.recordingPopup.closed) {
         window.recordingPopup.close();
     }
+    
     // Exit Picture-in-Picture if active
     if (document.pictureInPictureElement) {
         document.exitPictureInPicture().catch(console.error);
     }
+    
+    // Stop media recorder
     if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-    }
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        // Cleanup animation if overlay
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-            animationId = null;
+        try {
+            mediaRecorder.stop();
+        } catch (e) {
+            // Ignore
         }
-        if (screenVideo) {
-            screenVideo.pause();
-            if (screenVideo.srcObject) {
-                screenVideo.srcObject.getTracks().forEach(track => track.stop());
+    }
+    
+    // Stop all media streams
+    [mediaStream, screenStream, cameraStream, micStream].forEach(stream => {
+        if (stream) {
+            stream.getTracks().forEach(track => {
+                try {
+                    track.stop();
+                } catch (e) {
+                    // Ignore
+                }
+            });
+        }
+    });
+    
+    // Close audio context
+    if (audioContext) {
+        AudioContextManager.close(audioContext);
+        audioContext = null;
+    }
+    
+    // Cancel animation
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+    
+    // Clean up video elements
+    [screenVideo, cameraVideo].forEach(video => {
+        if (video) {
+            video.pause();
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
             }
-            screenVideo.srcObject = null;
-            screenVideo = null;
+            video.srcObject = null;
         }
-        if (cameraVideo) {
-            cameraVideo.pause();
-            if (cameraVideo.srcObject) {
-                cameraVideo.srcObject.getTracks().forEach(track => track.stop());
-            }
-            cameraVideo.srcObject = null;
-            cameraVideo = null;
-        }
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-    }
-    // Stop individual streams to revoke permissions
-    if (screenStream) {
-        screenStream.getTracks().forEach(track => track.stop());
-        screenStream = null;
-    }
-    if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = null;
-    }
-    if (micStream) {
-        micStream.getTracks().forEach(track => track.stop());
-        micStream = null;
-    }
+    });
+    
     stopBtn.style.display = 'none';
     previewVideo.srcObject = null;
     if (previewCanvas) {
@@ -409,6 +703,12 @@ function stopRecording() {
     recordedChunks = [];
     mediaRecorder = null;
     mediaStream = null;
+    screenStream = null;
+    cameraStream = null;
+    micStream = null;
+    screenVideo = null;
+    cameraVideo = null;
+    recordingCanvas = null;
     startBtn.disabled = false;
     updateToggles(false);
 }
@@ -483,13 +783,15 @@ async function getStream() {
     // Mix audio if both mic and system audio are enabled
     if (config.mic && config.systemAudio && audioStream && streams[0] && streams[0].getAudioTracks().length > 0) {
         try {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const micSource = audioContext.createMediaStreamSource(audioStream);
-            const systemSource = audioContext.createMediaStreamSource(new MediaStream(streams[0].getAudioTracks()));
-            const destination = audioContext.createMediaStreamDestination();
-            micSource.connect(destination);
-            systemSource.connect(destination);
-            mixedAudioTrack = destination.stream.getAudioTracks()[0];
+            audioContext = AudioContextManager.create();
+            if (audioContext) {
+                const micSource = audioContext.createMediaStreamSource(audioStream);
+                const systemSource = audioContext.createMediaStreamSource(new MediaStream(streams[0].getAudioTracks()));
+                const destination = audioContext.createMediaStreamDestination();
+                micSource.connect(destination);
+                systemSource.connect(destination);
+                mixedAudioTrack = destination.stream.getAudioTracks()[0];
+            }
         } catch (err) {
             console.warn('Audio mixing failed, using separate tracks:', err);
             mixedAudioTrack = null;
@@ -516,8 +818,12 @@ async function getStream() {
 
 async function startRecording() {
     try {
+        // Start performance monitoring
+        PerformanceMonitor.start();
+        
         mediaStream = await getStream();
         if (!mediaStream) {
+            PerformanceMonitor.stop();
             ErrorHandler.handle(null, 'No valid inputs selected or permissions granted.');
             return;
         }
@@ -588,6 +894,8 @@ async function startRecording() {
             const audioTracks = mediaStream.getAudioTracks();
 
             const draw = () => {
+                PerformanceMonitor.frame();
+                
                 if (screenVideo.paused && screenVideo.srcObject) screenVideo.play().catch(console.error);
                 if (cameraVideo.paused && cameraVideo.srcObject) cameraVideo.play().catch(console.error);
 
@@ -661,20 +969,25 @@ async function startRecording() {
 
         mediaRecorder.start();
         isRecording = true;
+        
         // Auto-save draft every 30 seconds during recording
-        const draftInterval = setInterval(() => {
+        draftInterval = setInterval(() => {
             if (isRecording) {
                 saveDraft();
             } else {
                 clearInterval(draftInterval);
+                draftInterval = null;
             }
         }, 30000);
+        
         showToast('Recording started... Keep this tab active for continuous recording.');
+        
         // Show Picture-in-Picture info if camera is enabled
         if (config.camera && document.pictureInPictureEnabled) {
             pipInfo.classList.remove('hidden');
         }
     } catch (err) {
+        PerformanceMonitor.stop();
         ErrorHandler.handle(err, `Failed to start: ${err.message}`);
     }
 }
@@ -924,7 +1237,16 @@ async function playVideo(id) {
     try {
         const video = await getVideo(id);
         if (video && video.videoBlob) {
-            modalVideo.src = URL.createObjectURL(video.videoBlob);
+            // Revoke previous URL if exists
+            if (modalVideo.src) {
+                try {
+                    URLManager.revoke(modalVideo.src);
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            const videoUrl = URLManager.create(URL.createObjectURL(video.videoBlob));
+            modalVideo.src = videoUrl;
             modal.classList.remove('hidden');
         }
     } catch (err) {
@@ -1002,6 +1324,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Save draft before page unload
 window.addEventListener('beforeunload', () => {
     saveDraft();
+    // Perform full cleanup on page unload
+    cleanupAll();
+});
+
+// Handle page visibility change - save draft and cleanup if needed
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && isRecording) {
+        // Save draft when tab becomes hidden
+        saveDraft();
+    }
 });
 
 // Error handling for unsupported features

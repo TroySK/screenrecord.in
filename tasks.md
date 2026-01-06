@@ -30,22 +30,22 @@
   - Consider adding optional password protection for sensitive recordings
 
 ### 1.2 Memory Management & Performance
-- [ ] **Create centralized cleanup function**
+- [x] **Create centralized cleanup function**
   - Function to release all media streams, object URLs, and animation frames
   - Call cleanup in all exit paths (success, error, user cancellation)
   - Add cleanup to `beforeunload` event to prevent leaks on page close
 
-- [ ] **Fix audio context memory leak**
+- [x] **Fix audio context memory leak**
   - Ensure AudioContext is closed in all error scenarios
   - Add try/finally blocks around audio processing
   - Track active audio contexts and auto-cleanup after recording
 
-- [ ] **Implement object URL lifecycle management**
+- [x] **Implement object URL lifecycle management**
   - Create URL manager that tracks all `createObjectURL()` calls
   - Auto-revoke URLs after use or on error
   - Add max URL limit to prevent browser memory issues
 
-- [ ] **Add performance monitoring**
+- [x] **Add performance monitoring**
   - Track memory usage during recordings
   - Monitor frame drops and recording quality
   - Show warnings when performance degrades
