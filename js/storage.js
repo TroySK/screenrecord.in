@@ -3,6 +3,7 @@
 // ============================================
 
 import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG } from './utils.js';
+import { StorageValidator, Validator } from './validation.js';
 
 // Database configuration - use CONFIG values
 const DB_NAME = CONFIG.DB_NAME;
@@ -103,10 +104,17 @@ export async function saveRecording(chunks, config, showToast = null) {
     const videoBlob = new Blob(chunks, { type: 'video/webm' });
     const size = videoBlob.size;
     
-    // Check size limit
-    const { CONFIG } = await import('./utils.js');
-    if (size > CONFIG.MAX_FILE_SIZE) {
+    // Check size limit using validation module
+    const sizeValidation = StorageValidator.validateFileSize({ size }, CONFIG.MAX_FILE_SIZE);
+    if (!sizeValidation.isValid) {
         ErrorHandler.handleStorageFull(showToast);
+        return { blob: videoBlob, filename: 'recording.webm', saved: false };
+    }
+    
+    // Check storage quota before saving
+    const quotaValidation = await StorageValidator.checkStorageQuota(size);
+    if (!quotaValidation.isValid) {
+        if (showToast) showToast(quotaValidation.firstError, 'error');
         return { blob: videoBlob, filename: 'recording.webm', saved: false };
     }
     

@@ -5,6 +5,7 @@
 import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG, Capabilities, initCapabilitiesUI } from './utils.js';
 import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo } from './storage.js';
 import { startRecording, stopRecording, RecordingState } from './recording.js';
+import { Validator, RecordingConfigValidator, StorageValidator, ValidationMessages } from './validation.js';
 
 // ============================================
 // DOM ELEMENTS CACHE
@@ -334,6 +335,26 @@ export function setupEventListeners() {
     
     // Recording controls
     elements.startBtn?.addEventListener('click', async () => {
+        // Validate configuration before starting
+        const configValidation = RecordingConfigValidator.validate(AppConfig.config);
+        
+        if (!configValidation.isValid) {
+            showToast(configValidation.firstError, 'error');
+            return;
+        }
+        
+        // Check storage quota
+        const storageValidation = await StorageValidator.checkStorageQuota();
+        if (!storageValidation.isValid) {
+            showToast(storageValidation.firstError, 'error');
+            return;
+        }
+        
+        // Show warnings if any
+        if (storageValidation.warnings.length > 0) {
+            showToast(storageValidation.warnings[0], 'warning');
+        }
+        
         const result = await startRecording(AppConfig.config, showToast);
         if (result) {
             elements.stopBtn.style.display = 'block';
