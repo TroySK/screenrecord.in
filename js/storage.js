@@ -2,12 +2,12 @@
 // INDEXEDDB STORAGE MODULE
 // ============================================
 
-import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle } from './utils.js';
+import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG } from './utils.js';
 
-// Database configuration
-const DB_NAME = 'ScreenRecordDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'videos';
+// Database configuration - use CONFIG values
+const DB_NAME = CONFIG.DB_NAME;
+const DB_VERSION = CONFIG.DB_VERSION;
+const STORE_NAME = CONFIG.STORE_NAME;
 
 // ============================================
 // DATABASE OPERATIONS
@@ -129,7 +129,7 @@ export async function saveRecording(chunks, config, showToast = null) {
     
     try {
         await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Timeout')), CONFIG.VIDEO_METADATA_TIMEOUT);
             
             tempVideo.onloadedmetadata = () => {
                 clearTimeout(timeout);

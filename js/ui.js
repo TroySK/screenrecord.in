@@ -2,7 +2,7 @@
 // UI MODULE - DOM Manipulation
 // ============================================
 
-import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES } from './utils.js';
+import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG } from './utils.js';
 import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo } from './storage.js';
 import { startRecording, stopRecording, RecordingState } from './recording.js';
 
@@ -74,7 +74,7 @@ export function showToast(message, type = 'info') {
     toast.className = `toast ${type}`;
     toast.textContent = message;
     elements.errorNotifications.appendChild(toast);
-    setTimeout(() => toast.remove(), 5000);
+    setTimeout(() => toast.remove(), CONFIG.TOAST_DURATION);
 }
 
 // ============================================
@@ -188,9 +188,9 @@ export async function populateSavedList() {
         elements.savedList.innerHTML = '';
         
         if (videos.length === 0) {
-            const emptyMsg = createElement('p', { 
-                className: 'empty-state', 
-                textContent: 'No recordings yet. Start your first one!' 
+            const emptyMsg = createElement('p', {
+                className: 'empty-state',
+                textContent: CONFIG.EMPTY_RECORDINGS_MESSAGE
             });
             elements.savedList.appendChild(emptyMsg);
             return;
@@ -269,9 +269,9 @@ export async function populateSavedList() {
     } catch (err) {
         console.error('Error loading recordings:', err);
         elements.savedList.innerHTML = '';
-        const errorMsg = createElement('p', { 
-            className: 'empty-state', 
-            textContent: 'Error loading recordings.' 
+        const errorMsg = createElement('p', {
+            className: 'empty-state',
+            textContent: CONFIG.ERROR_LOADING_MESSAGE
         });
         elements.savedList.appendChild(errorMsg);
     }
@@ -359,21 +359,21 @@ export function setupEventListeners() {
     // Sidebar
     elements.toggleSidebar?.addEventListener('click', () => {
         elements.sidebar?.classList.toggle('open');
-        elements.toggleSidebar.textContent = elements.sidebar?.classList.contains('open') ? '📁 Close' : '📁 Saved';
+        elements.toggleSidebar.textContent = elements.sidebar?.classList.contains('open') ? CONFIG.SIDEBAR_OPEN_TEXT : CONFIG.SIDEBAR_CLOSED_TEXT;
     });
     
     elements.closeSidebar?.addEventListener('click', () => {
         elements.sidebar?.classList.remove('open');
-        elements.toggleSidebar.textContent = '📁 Saved';
+        elements.toggleSidebar.textContent = CONFIG.SIDEBAR_CLOSED_TEXT;
     });
     
     // Close sidebar on outside click
     document.addEventListener('click', (e) => {
-        if (elements.sidebar?.classList.contains('open') && 
-            !elements.sidebar.contains(e.target) && 
+        if (elements.sidebar?.classList.contains('open') &&
+            !elements.sidebar.contains(e.target) &&
             !elements.toggleSidebar.contains(e.target)) {
             elements.sidebar.classList.remove('open');
-            elements.toggleSidebar.textContent = '📁 Saved';
+            elements.toggleSidebar.textContent = CONFIG.SIDEBAR_CLOSED_TEXT;
         }
     });
     
@@ -433,14 +433,14 @@ export function toggleSidebar(forceState) {
     if (forceState !== undefined) {
         if (forceState) {
             elements.sidebar?.classList.add('open');
-            elements.toggleSidebar.textContent = '📁 Close';
+            elements.toggleSidebar.textContent = CONFIG.SIDEBAR_OPEN_TEXT;
         } else {
             elements.sidebar?.classList.remove('open');
-            elements.toggleSidebar.textContent = '📁 Saved';
+            elements.toggleSidebar.textContent = CONFIG.SIDEBAR_CLOSED_TEXT;
         }
     } else {
         elements.sidebar?.classList.toggle('open');
-        elements.toggleSidebar.textContent = elements.sidebar?.classList.contains('open') ? '📁 Close' : '📁 Saved';
+        elements.toggleSidebar.textContent = elements.sidebar?.classList.contains('open') ? CONFIG.SIDEBAR_OPEN_TEXT : CONFIG.SIDEBAR_CLOSED_TEXT;
     }
 }
 

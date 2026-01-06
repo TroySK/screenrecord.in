@@ -2,6 +2,8 @@
 // MAIN ENTRY POINT - Module Loader with Dynamic Imports
 // ============================================
 
+import { CONFIG } from './utils.js';
+
 // Module registry for dynamic loading
 const ModuleRegistry = {
     utils: null,
@@ -127,7 +129,7 @@ export function adaptUIForCapabilities() {
         const screenToggle = document.getElementById('screen-toggle');
         const screenInfo = document.getElementById('screen-info');
         if (screenToggle) screenToggle.style.display = 'none';
-        if (screenInfo) screenInfo.textContent = 'Screen sharing not supported on this device';
+        if (screenInfo) screenInfo.textContent = CONFIG.SCREEN_SHARING_UNSUPPORTED_MESSAGE || 'Screen sharing not supported on this device';
     }
     
     // Hide PiP if not supported
@@ -153,9 +155,9 @@ export async function initApp() {
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-banner';
         errorDiv.innerHTML = `
-            <h2>Browser Not Fully Supported</h2>
-            <p>Some features may not work. Please use a modern browser like Chrome, Firefox, or Edge.</p>
-            <p>Issues: ${compatibility.issues.join(', ')}</p>
+            <h2>${CONFIG.BROWSER_NOT_SUPPORTED_TITLE}</h2>
+            <p>${CONFIG.BROWSER_NOT_SUPPORTED_MESSAGE}</p>
+            <p>${CONFIG.ISSUES_LABEL}: ${compatibility.issues.join(', ')}</p>
         `;
         document.body.prepend(errorDiv);
     }
@@ -175,9 +177,9 @@ export async function initApp() {
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-banner';
         errorDiv.innerHTML = `
-            <h2>Failed to Initialize</h2>
-            <p>Please refresh the page. If the problem persists, try a different browser.</p>
-            <p>Error: ${err.message}</p>
+            <h2>${CONFIG.INIT_FAILED_TITLE}</h2>
+            <p>${CONFIG.INIT_FAILED_MESSAGE}</p>
+            <p>${CONFIG.ERROR_LABEL}: ${err.message}</p>
         `;
         document.body.prepend(errorDiv);
     }

@@ -2,10 +2,12 @@
 // CONFIGURATION & CONSTANTS
 // ============================================
 
-export const CONFIG = {
+// Default configuration values
+const DEFAULT_CONFIG = {
     // Storage
     MAX_FILE_SIZE: 500 * 1024 * 1024, // 500MB limit
     DRAFT_AUTO_SAVE_INTERVAL: 30000, // 30 seconds
+    DRAFT_MAX_AGE: 24 * 60 * 60 * 1000, // 24 hours
     
     // Recording
     DEFAULT_VIDEO_WIDTH: 1920,
@@ -13,6 +15,22 @@ export const CONFIG = {
     CAMERA_WIDTH: 1280,
     CAMERA_HEIGHT: 720,
     RECORDING_FPS: 30,
+    VIDEO_MIME_TYPE: 'video/webm;codecs=vp9',
+    
+    // Resolution options (for quality settings UI)
+    RESOLUTION_OPTIONS: [
+        { width: 854, height: 480, label: '480p' },
+        { width: 1280, height: 720, label: '720p' },
+        { width: 1920, height: 1080, label: '1080p' },
+        { width: 2560, height: 1440, label: '1440p' },
+        { width: 3840, height: 2160, label: '4K' }
+    ],
+    
+    // Frame rate options
+    FRAME_RATE_OPTIONS: [15, 30, 60],
+    
+    // Codec preferences (in order of preference)
+    CODEC_PREFERENCES: ['vp9', 'vp8', 'h264'],
     
     // Canvas overlay
     OVERLAY_SCALE: 0.2, // 20% of screen width
@@ -24,13 +42,228 @@ export const CONFIG = {
     MEMORY_SAMPLE_INTERVAL: 5000,
     FRAME_DROP_THRESHOLD: 50, // ms
     
-    // Draft
-    DRAFT_MAX_AGE: 24 * 60 * 60 * 1000, // 24 hours
+    // Timeouts
+    VIDEO_METADATA_TIMEOUT: 10000, // 10 seconds
+    THUMBNAIL_CAPTURE_TIMEOUT: 10000, // 10 seconds
+    TOAST_DURATION: 5000, // 5 seconds
+    
+    // Database
+    DB_NAME: 'ScreenRecordDB',
+    DB_VERSION: 1,
+    STORE_NAME: 'videos',
+    
+    // UI
+    MAX_TITLE_LENGTH: 100,
+    SIDEBAR_OPEN_TEXT: '📁 Close',
+    SIDEBAR_CLOSED_TEXT: '📁 Saved',
+    EMPTY_RECORDINGS_MESSAGE: 'No recordings yet. Start your first one!',
+    ERROR_LOADING_MESSAGE: 'Error loading recordings.',
+    
+    // Error messages
+    BROWSER_NOT_SUPPORTED_TITLE: 'Browser Not Fully Supported',
+    BROWSER_NOT_SUPPORTED_MESSAGE: 'Some features may not work. Please use a modern browser like Chrome, Firefox, or Edge.',
+    ISSUES_LABEL: 'Issues',
+    INIT_FAILED_TITLE: 'Failed to Initialize',
+    INIT_FAILED_MESSAGE: 'Please refresh the page. If the problem persists, try a different browser.',
+    ERROR_LABEL: 'Error',
+    SCREEN_SHARING_UNSUPPORTED_MESSAGE: 'Screen sharing not supported on this device',
+    
+    // Storage keys
+    CONFIG_STORAGE_KEY: 'screenrecord_config',
+    STATE_STORAGE_KEY: 'screenrecord_state',
+    DRAFT_STORAGE_KEY: 'screenrecord_draft'
 };
+
+// Configuration storage key
+const CONFIG_OVERRIDE_KEY = 'screenrecord_config_override';
+
+// Create CONFIG object with localStorage override support
+export const CONFIG = createConfigWithOverride(DEFAULT_CONFIG, CONFIG_OVERRIDE_KEY);
+
+/**
+ * Creates a configuration object that can be overridden via localStorage
+ * @param {Object} defaults - Default configuration values
+ * @param {string} overrideKey - localStorage key for overrides
+ * @returns {Proxy} - Proxy object that merges defaults with overrides
+ */
+function createConfigWithOverride(defaults, overrideKey) {
+    // Load overrides from localStorage
+    let overrides = {};
+    try {
+        const stored = localStorage.getItem(overrideKey);
+        if (stored) {
+            overrides = JSON.parse(stored);
+        }
+    } catch (e) {
+        console.warn('Failed to load config overrides:', e);
+    }
+    
+    // Create merged config
+    const mergedConfig = { ...defaults, ...overrides };
+    
+    // Return a Proxy that allows reading but requires using setConfig to modify
+    return new Proxy(mergedConfig, {
+        get(target, prop) {
+            if (prop in target) {
+                return target[prop];
+            }
+            return undefined;
+        },
+        set(target, prop, value) {
+            console.warn('CONFIG values should not be modified directly. Use setConfigValue() instead.');
+            return false;
+        },
+        has(target, prop) {
+            return prop in target;
+        },
+        ownKeys(target) {
+            return Object.keys(target);
+        },
+        getOwnPropertyDescriptor(target, prop) {
+            if (prop in target) {
+                return {
+                    value: target[prop],
+                    enumerable: true,
+                    configurable: true,
+                    writable: false
+                };
+            }
+            return undefined;
+        }
+    });
+}
+
+/**
+ * Set a configuration value (persists to localStorage)
+ * @param {string} key - Configuration key
+ * @param {*} value - Configuration value
+ * @param {boolean} persist - Whether to persist to localStorage (default: true)
+ * @returns {boolean} - Whether the operation succeeded
+ */
+export function setConfigValue(key, value, persist = true) {
+    if (!(key in DEFAULT_CONFIG)) {
+        console.warn(`Unknown config key: ${key}`);
+        return false;
+    }
+    
+    // Validate value type
+    const expectedType = typeof DEFAULT_CONFIG[key];
+    if (typeof value !== expectedType) {
+        console.warn(`Config value for "${key}" must be of type ${expectedType}`);
+        return false;
+    }
+    
+    // Update in-memory config
+    CONFIG[key] = value;
+    
+    if (persist) {
+        try {
+            let overrides = {};
+            const stored = localStorage.getItem(CONFIG_OVERRIDE_KEY);
+            if (stored) {
+                overrides = JSON.parse(stored);
+            }
+            overrides[key] = value;
+            localStorage.setItem(CONFIG_OVERRIDE_KEY, JSON.stringify(overrides));
+        } catch (e) {
+            console.warn('Failed to persist config override:', e);
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Get a configuration value
+ * @param {string} key - Configuration key
+ * @param {*} defaultValue - Default value if key not found
+ * @returns {*} - Configuration value
+ */
+export function getConfigValue(key, defaultValue = undefined) {
+    if (key in CONFIG) {
+        return CONFIG[key];
+    }
+    return defaultValue;
+}
+
+/**
+ * Reset configuration to defaults (clears overrides)
+ * @param {boolean} persist - Whether to clear localStorage (default: true)
+ */
+export function resetConfig(persist = true) {
+    if (persist) {
+        try {
+            localStorage.removeItem(CONFIG_OVERRIDE_KEY);
+        } catch (e) {
+            console.warn('Failed to clear config overrides:', e);
+        }
+    }
+    // Reload page to apply defaults
+    window.location.reload();
+}
+
+/**
+ * Get all configuration overrides
+ * @returns {Object} - Current overrides
+ */
+export function getConfigOverrides() {
+    try {
+        const stored = localStorage.getItem(CONFIG_OVERRIDE_KEY);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {
+        console.warn('Failed to load config overrides:', e);
+    }
+    return {};
+}
+
+/**
+ * Apply a batch of configuration values
+ * @param {Object} values - Object with key-value pairs to set
+ * @returns {Object} - Object with keys that were successfully set
+ */
+export function setConfigBatch(values) {
+    const result = {};
+    Object.entries(values).forEach(([key, value]) => {
+        if (setConfigValue(key, value, false)) {
+            result[key] = value;
+        }
+    });
+    
+    // Persist all at once
+    if (Object.keys(result).length > 0) {
+        try {
+            let overrides = {};
+            const stored = localStorage.getItem(CONFIG_OVERRIDE_KEY);
+            if (stored) {
+                overrides = JSON.parse(stored);
+            }
+            Object.assign(overrides, result);
+            localStorage.setItem(CONFIG_OVERRIDE_KEY, JSON.stringify(overrides));
+        } catch (e) {
+            console.warn('Failed to persist config batch:', e);
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * Export current configuration (for debugging/settings)
+ * @returns {Object} - Full configuration with defaults and overrides
+ */
+export function exportConfig() {
+    return {
+        defaults: DEFAULT_CONFIG,
+        overrides: getConfigOverrides(),
+        effective: CONFIG
+    };
+}
 
 // State management
 export const STATE_VERSION = 1;
-export const STORAGE_KEY = 'screenrecord_state';
+export const STORAGE_KEY = CONFIG.STATE_STORAGE_KEY;
 
 // Valid config keys
 export const VALID_CONFIG_KEYS = ['screen', 'camera', 'mic', 'systemAudio'];

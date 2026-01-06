@@ -425,7 +425,7 @@ async function startSimpleRecording(config, showToast = null) {
 
 async function startMediaRecorder(stream, config, showToast = null) {
     RecordingState.clearRecordedChunks();
-    RecordingState.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+    RecordingState.mediaRecorder = new MediaRecorder(stream, { mimeType: CONFIG.VIDEO_MIME_TYPE });
     
     RecordingState.mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) RecordingState.addRecordedChunk(e.data);
