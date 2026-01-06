@@ -2,7 +2,7 @@
 // INDEXEDDB STORAGE MODULE
 // ============================================
 
-import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG } from './utils.js';
+import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG, StorageRetry } from './utils.js';
 import { StorageValidator, Validator } from './validation.js';
 
 // Database configuration - use CONFIG values
@@ -32,14 +32,22 @@ export function openDB() {
 }
 
 export async function addVideo(videoObj) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.add(videoObj);
-        
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
+    return StorageRetry.execute(async () => {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.add(videoObj);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }, {
+        maxRetries: 2,
+        initialDelay: 500,
+        onRetry: (info) => {
+            console.warn(`[Storage] Retry attempt ${info.attempt}/${info.maxRetries} for addVideo`);
+        }
     });
 }
 
@@ -68,26 +76,30 @@ export async function getVideo(id) {
 }
 
 export async function deleteVideoFromDB(id) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.delete(id);
-        
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
+    return StorageRetry.execute(async () => {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.delete(id);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
     });
 }
 
 export async function clearAllVideos() {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.clear();
-        
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
+    return StorageRetry.execute(async () => {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.clear();
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
     });
 }
 

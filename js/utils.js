@@ -844,3 +844,429 @@ export async function estimateStorageUsage() {
     }
     return 0;
 }
+
+// ============================================
+// RETRY LOGIC WITH EXPONENTIAL BACKOFF
+// ============================================
+
+export const RetryManager = {
+    // Default retry configuration
+    defaultConfig: {
+        maxRetries: 3,
+        initialDelay: 1000, // 1 second
+        maxDelay: 30000, // 30 seconds
+        backoffMultiplier: 2,
+        jitterFactor: 0.1, // 10% jitter
+        retryableErrors: [
+            'NotAllowedError',
+            'NotFoundError',
+            'AbortError',
+            'SourceUnavailable',
+            'QuotaExceededError',
+            'InvalidStateError',
+            'NotReadableError'
+        ]
+    },
+    
+    /**
+     * Calculate delay with exponential backoff and jitter
+     * @param {number} attempt - Current attempt number (0-indexed)
+     * @param {Object} config - Retry configuration
+     * @returns {number} - Delay in milliseconds
+     */
+    calculateDelay(attempt, config = {}) {
+        const cfg = { ...this.defaultConfig, ...config };
+        const delay = Math.min(
+            cfg.initialDelay * Math.pow(cfg.backoffMultiplier, attempt),
+            cfg.maxDelay
+        );
+        // Add jitter (random variation)
+        const jitter = delay * cfg.jitterFactor;
+        return delay + (Math.random() * 2 - 1) * jitter;
+    },
+    
+    /**
+     * Check if an error is retryable
+     * @param {Error} error - The error to check
+     * @param {Object} config - Retry configuration
+     * @returns {boolean} - Whether the error is retryable
+     */
+    isRetryable(error, config = {}) {
+        const cfg = { ...this.defaultConfig, ...config };
+        if (!error || !error.name) return false;
+        
+        // Check if error name is in retryable list
+        if (cfg.retryableErrors.includes(error.name)) return true;
+        
+        // Check for specific error messages
+        const message = error.message?.toLowerCase() || '';
+        const retryableMessages = [
+            'permission denied',
+            'not allowed',
+            'not found',
+            'aborted',
+            'quota exceeded',
+            'storage full',
+            'invalid state',
+            'not readable'
+        ];
+        
+        return retryableMessages.some(msg => message.includes(msg));
+    },
+    
+    /**
+     * Execute a function with retry logic
+     * @param {Function} fn - Async function to execute
+     * @param {Object} options - Retry options
+     * @returns {Promise<*>} - Result of the function
+     */
+    async execute(fn, options = {}) {
+        const config = { ...this.defaultConfig, ...options };
+        let lastError;
+        
+        for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+            try {
+                return await fn(attempt);
+            } catch (error) {
+                lastError = error;
+                
+                // Check if we should retry
+                if (attempt >= config.maxRetries || !this.isRetryable(error, config)) {
+                    throw error;
+                }
+                
+                // Calculate and wait for delay
+                const delay = this.calculateDelay(attempt, config);
+                
+                // Call onRetry callback if provided
+                if (config.onRetry) {
+                    config.onRetry({
+                        error,
+                        attempt: attempt + 1,
+                        maxRetries: config.maxRetries,
+                        delay
+                    });
+                }
+                
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+        
+        throw lastError;
+    },
+    
+    /**
+     * Create a retryable version of a function
+     * @param {Function} fn - Async function to wrap
+     * @param {Object} options - Retry options
+     * @returns {Function} - Retryable function
+     */
+    wrap(fn, options = {}) {
+        return async (...args) => {
+            return this.execute(() => fn(...args), options);
+        };
+    }
+};
+
+// ============================================
+// PERMISSION REQUEST WITH RETRY
+// ============================================
+
+export const PermissionManager = {
+    // Track permission state
+    permissionStates: {},
+    
+    // User education messages
+    educationMessages: {
+        'screen': {
+            title: 'Screen Sharing Permission Needed',
+            message: 'To record your screen, please select a window or screen to share. Make sure to check "Share audio" if you want to include system sound.',
+            tip: 'Tip: If you accidentally clicked "Block", click the lock icon in your browser address bar to reset permissions.'
+        },
+        'camera': {
+            title: 'Camera Permission Needed',
+            message: 'To record with camera, please allow access when prompted. Your camera will only be used during recording.',
+            tip: 'Tip: Check that your camera is not being used by another application.'
+        },
+        'microphone': {
+            title: 'Microphone Permission Needed',
+            message: 'To record audio, please allow microphone access when prompted. Your microphone will only be used during recording.',
+            tip: 'Tip: If using external microphone, make sure it\'s selected as the default input device.'
+        }
+    },
+    
+    /**
+     * Request permission with automatic retry on denial
+     * @param {string} feature - Feature name ('screen', 'camera', 'microphone')
+     * @param {Function} requestFn - Async function that requests permission
+     * @param {Object} options - Options including showToast callback
+     * @returns {Promise<*>} - Result of the request function
+     */
+    async requestWithRetry(feature, requestFn, options = {}) {
+        const { showToast, maxRetries = 1 } = options;
+        const education = this.educationMessages[feature];
+        
+        // First attempt
+        try {
+            return await requestFn();
+        } catch (error) {
+            if (error.name !== 'NotAllowedError') {
+                throw error;
+            }
+            
+            // Show user education message
+            if (education && showToast) {
+                showToast(education.message, 'info');
+                console.info(`[Permission] User education shown for ${feature}`);
+            }
+            
+            // Retry once after education
+            if (maxRetries >= 1) {
+                // Small delay to let user read the message
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                try {
+                    return await requestFn();
+                } catch (retryError) {
+                    // If still denied, show tip
+                    if (retryError.name === 'NotAllowedError' && education && showToast) {
+                        showToast(education.tip, 'warning');
+                    }
+                    throw retryError;
+                }
+            }
+            
+            throw error;
+        }
+    },
+    
+    /**
+     * Request screen share with retry
+     * @param {Object} options - Options for getDisplayMedia
+     * @param {Function} showToast - Toast notification function
+     * @returns {Promise<MediaStream>} - Screen stream
+     */
+    async requestScreenShare(options = {}, showToast = null) {
+        return this.requestWithRetry('screen', async () => {
+            const controller = new CaptureController();
+            return navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: options.audio || false,
+                controller: controller
+            });
+        }, { showToast, maxRetries: 1 });
+    },
+    
+    /**
+     * Request camera access with retry
+     * @param {Object} options - Options for getUserMedia
+     * @param {Function} showToast - Toast notification function
+     * @returns {Promise<MediaStream>} - Camera stream
+     */
+    async requestCamera(options = {}, showToast = null) {
+        return this.requestWithRetry('camera', async () => {
+            return navigator.mediaDevices.getUserMedia({
+                video: options.video || { width: { ideal: CONFIG.CAMERA_WIDTH }, height: { ideal: CONFIG.CAMERA_HEIGHT } },
+                audio: options.audio || false
+            });
+        }, { showToast, maxRetries: 1 });
+    },
+    
+    /**
+     * Request microphone access with retry
+     * @param {Object} options - Options for getUserMedia
+     * @param {Function} showToast - Toast notification function
+     * @returns {Promise<MediaStream>} - Microphone stream
+     */
+    async requestMicrophone(options = {}, showToast = null) {
+        return this.requestWithRetry('microphone', async () => {
+            return navigator.mediaDevices.getUserMedia({
+                audio: options.audio || { echoCancellation: true, noiseSuppression: true }
+            });
+        }, { showToast, maxRetries: 1 });
+    },
+    
+    /**
+     * Check current permission status
+     * @param {string} feature - Feature name
+     * @returns {Promise<string>} - Permission state ('granted', 'denied', 'prompt')
+     */
+    async checkPermission(feature) {
+        const featureMap = {
+            'screen': 'display-capture',
+            'camera': 'camera',
+            'microphone': 'microphone'
+        };
+        
+        const permissionName = featureMap[feature];
+        if (!permissionName) return 'prompt';
+        
+        try {
+            const result = await navigator.permissions.query({ name: permissionName });
+            this.permissionStates[feature] = result.state;
+            return result.state;
+        } catch (e) {
+            return 'unknown';
+        }
+    }
+};
+
+// ============================================
+// STORAGE OPERATIONS WITH RETRY
+// ============================================
+
+export const StorageRetry = {
+    /**
+     * Execute IndexedDB operation with retry
+     * @param {Function} operation - Async function performing DB operation
+     * @param {Object} options - Retry options
+     * @returns {Promise<*>} - Result of the operation
+     */
+    async execute(operation, options = {}) {
+        return RetryManager.execute(async (attempt) => {
+            return await operation();
+        }, {
+            ...options,
+            retryableErrors: [
+                'QuotaExceededError',
+                'InvalidStateError',
+                'NotReadableError',
+                'TransactionInactiveError'
+            ],
+            onRetry: options.onRetry ? options.onRetry : (info) => {
+                console.warn(`[Storage] Retry attempt ${info.attempt}/${info.maxRetries} after error: ${info.error.message}`);
+            }
+        });
+    },
+    
+    /**
+     * Save video with retry on quota exceeded
+     * @param {Function} saveFn - Async function to save video
+     * @param {Object} options - Retry options
+     * @returns {Promise<*>} - Result of save operation
+     */
+    async saveWithRetry(saveFn, options = {}) {
+        return this.execute(saveFn, {
+            maxRetries: 2,
+            initialDelay: 500,
+            ...options
+        });
+    }
+};
+
+// ============================================
+// RECOVERABLE ERROR UI COMPONENTS
+// ============================================
+
+export const ErrorRecovery = {
+    /**
+     * Create a "try again" button for recoverable errors
+     * @param {Object} params - Parameters
+     * @param {string} params.message - Error message to display
+     * @param {Function} params.onRetry - Callback when button is clicked
+     * @param {string} params.containerId - ID of container to append button to
+     * @param {string} params.buttonText - Custom button text
+     * @returns {HTMLDivElement} - The error container element
+     */
+    createTryAgainButton(params) {
+        const {
+            message,
+            onRetry,
+            containerId,
+            buttonText = 'Try Again',
+            errorType = 'error'
+        } = params;
+        
+        const container = document.createElement('div');
+        container.className = `error-recovery ${errorType}`;
+        container.innerHTML = `
+            <div class="error-message">${message}</div>
+            <button class="retry-btn">${buttonText}</button>
+        `;
+        
+        const button = container.querySelector('.retry-btn');
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            button.textContent = 'Retrying...';
+            
+            try {
+                await onRetry();
+                container.remove();
+            } catch (err) {
+                button.disabled = false;
+                button.textContent = buttonText;
+                console.error('Retry failed:', err);
+            }
+        });
+        
+        if (containerId) {
+            const target = document.getElementById(containerId);
+            if (target) {
+                target.appendChild(container);
+            }
+        }
+        
+        return container;
+    },
+    
+    /**
+     * Show recoverable error with retry button
+     * @param {Object} params - Parameters
+     */
+    showRecoverableError(params) {
+        const { showToast, ...rest } = params;
+        
+        // Show toast notification
+        if (showToast) {
+            showToast(params.message, 'error');
+        }
+        
+        // Create try again button if container specified
+        if (params.containerId) {
+            return this.createTryAgainButton(params);
+        }
+        
+        return null;
+    },
+    
+    /**
+     * Create inline error with retry for a specific element
+     * @param {string} elementId - ID of the element to show error for
+     * @param {string} message - Error message
+     * @param {Function} retryFn - Function to call on retry
+     * @returns {HTMLDivElement} - Error container
+     */
+    createInlineError(elementId, message, retryFn) {
+        const element = document.getElementById(elementId);
+        if (!element) return null;
+        
+        // Create error container
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'inline-error';
+        errorContainer.innerHTML = `
+            <span class="error-text">${message}</span>
+            <button class="inline-retry-btn">Retry</button>
+        `;
+        
+        errorContainer.querySelector('.inline-retry-btn').addEventListener('click', async () => {
+            errorContainer.remove();
+            element.disabled = true;
+            element.classList.add('loading');
+            
+            try {
+                await retryFn();
+            } catch (err) {
+                // If retry fails, show error again
+                element.classList.remove('loading');
+                element.disabled = false;
+                element.parentNode.insertBefore(errorContainer, element.nextSibling);
+            }
+        });
+        
+        // Insert after the element
+        element.parentNode.insertBefore(errorContainer, element.nextSibling);
+        
+        return errorContainer;
+    }
+};

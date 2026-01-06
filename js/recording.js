@@ -4,7 +4,7 @@
 
 import {
     CONFIG, ErrorHandler, URLManager, AudioContextManager, PerformanceMonitor,
-    waitForVideoDimensions, STATE_VERSION, STORAGE_KEY
+    waitForVideoDimensions, STATE_VERSION, STORAGE_KEY, PermissionManager, RetryManager
 } from './utils.js';
 import { saveRecording, downloadVideo } from './storage.js';
 
@@ -183,18 +183,16 @@ export async function getMediaStream(config, showToast = null) {
     let mixedAudioTrack = null;
     
     if (config.screen) {
-        const controller = new CaptureController();
         try {
-            RecordingState.screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: config.systemAudio ? { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } : false,
-                controller: controller
-            });
+            RecordingState.screenStream = await PermissionManager.requestScreenShare({
+                audio: config.systemAudio
+            }, showToast);
             
             const videoTrack = RecordingState.screenStream.getVideoTracks()[0];
             const settings = videoTrack.getSettings();
             
             if (settings.displaySurface === 'browser' || settings.displaySurface === 'window') {
+                const controller = new CaptureController();
                 controller.setFocusBehavior('no-focus-change');
             }
             
@@ -211,9 +209,7 @@ export async function getMediaStream(config, showToast = null) {
     
     if (config.camera) {
         try {
-            RecordingState.cameraStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: CONFIG.CAMERA_WIDTH }, height: { ideal: CONFIG.CAMERA_HEIGHT } }
-            });
+            RecordingState.cameraStream = await PermissionManager.requestCamera({}, showToast);
             streams.push(RecordingState.cameraStream);
         } catch (err) {
             if (err.name === 'NotAllowedError') {
@@ -227,9 +223,7 @@ export async function getMediaStream(config, showToast = null) {
     
     if (config.mic) {
         try {
-            RecordingState.micStream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true }
-            });
+            RecordingState.micStream = await PermissionManager.requestMicrophone({}, showToast);
             if (streams.length === 0) streams.push(new MediaStream());
         } catch (err) {
             if (err.name === 'NotAllowedError') {
