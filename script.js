@@ -1,21 +1,3 @@
-// Global variables
-let mediaRecorder;
-let recordedChunks = [];
-let mediaStream;
-let animationId;
-let recordingCanvas;
-let previewCanvas;
-let screenVideo;
-let cameraVideo;
-let screenStream;
-let cameraStream;
-let micStream;
-let config = { screen: false, camera: false, mic: false, systemAudio: false };
-let isRecording = false;
-let audioContext = null;
-let currentVideoId = null;
-let draftInterval = null;
-
 // DOM elements
 const screenToggle = document.getElementById('screen-toggle');
 const cameraToggle = document.getElementById('camera-toggle');
@@ -40,6 +22,383 @@ const closeSidebar = document.getElementById('close-sidebar');
 const storageInfo = document.getElementById('storage-info');
 const errorNotifications = document.getElementById('error-notifications');
 const downloadLast = document.getElementById('download-last');
+
+// ============================================
+// CENTRALIZED STATE MANAGEMENT
+// ============================================
+
+// State version for migration
+const STATE_VERSION = 1;
+const STORAGE_KEY = 'screenrecord_state';
+
+// Immutable values - validation helpers
+const VALID_CONFIG_KEYS = ['screen', 'camera', 'mic', 'systemAudio'];
+const VALID_CONFIG_VALUES = {
+    screen: 'boolean',
+    camera: 'boolean',
+    mic: 'boolean',
+    systemAudio: 'boolean'
+};
+
+// Centralized AppState object
+const AppState = {
+    // Recording state (mutable)
+    _mediaRecorder: null,
+    _recordedChunks: [],
+    _mediaStream: null,
+    _animationId: null,
+    _recordingCanvas: null,
+    _previewCanvas: null,
+    _screenVideo: null,
+    _cameraVideo: null,
+    _screenStream: null,
+    _cameraStream: null,
+    _micStream: null,
+    _isRecording: false,
+    _audioContext: null,
+    _currentVideoId: null,
+    _draftInterval: null,
+    
+    // Configuration (mutable, persisted)
+    _config: {
+        screen: false,
+        camera: false,
+        mic: false,
+        systemAudio: false
+    },
+    
+    // Draft state (for crash recovery)
+    _currentDraft: null,
+    
+    // ============================================
+    // CONFIG GETTERS/SETTERS WITH VALIDATION
+    // ============================================
+    
+    get config() {
+        return { ...this._config };
+    },
+    
+    setConfig(key, value) {
+        if (!VALID_CONFIG_KEYS.includes(key)) {
+            console.warn(`Invalid config key: ${key}`);
+            return false;
+        }
+        if (typeof value !== VALID_CONFIG_VALUES[key]) {
+            console.warn(`Invalid config value for ${key}: expected ${VALID_CONFIG_VALUES[key]}, got ${typeof value}`);
+            return false;
+        }
+        this._config[key] = value;
+        this._persistConfig();
+        return true;
+    },
+    
+    setConfigBatch(newConfig) {
+        const validated = {};
+        Object.entries(newConfig).forEach(([key, value]) => {
+            if (VALID_CONFIG_KEYS.includes(key) && typeof value === VALID_CONFIG_VALUES[key]) {
+                validated[key] = value;
+            }
+        });
+        this._config = { ...this._config, ...validated };
+        this._persistConfig();
+        return validated;
+    },
+    
+    resetConfig() {
+        this._config = {
+            screen: false,
+            camera: false,
+            mic: false,
+            systemAudio: false
+        };
+        this._persistConfig();
+    },
+    
+    // ============================================
+    // RECORDING STATE GETTERS/SETTERS
+    // ============================================
+    
+    get isRecording() {
+        return this._isRecording;
+    },
+    
+    set isRecording(value) {
+        this._isRecording = Boolean(value);
+    },
+    
+    get recordedChunks() {
+        return [...this._recordedChunks];
+    },
+    
+    set recordedChunks(chunks) {
+        if (Array.isArray(chunks)) {
+            this._recordedChunks = chunks;
+        }
+    },
+    
+    addRecordedChunk(chunk) {
+        if (chunk && chunk instanceof Blob) {
+            this._recordedChunks.push(chunk);
+        }
+    },
+    
+    clearRecordedChunks() {
+        this._recordedChunks = [];
+    },
+    
+    get mediaRecorder() {
+        return this._mediaRecorder;
+    },
+    
+    set mediaRecorder(recorder) {
+        this._mediaRecorder = recorder;
+    },
+    
+    get mediaStream() {
+        return this._mediaStream;
+    },
+    
+    set mediaStream(stream) {
+        this._mediaStream = stream;
+    },
+    
+    get animationId() {
+        return this._animationId;
+    },
+    
+    set animationId(id) {
+        this._animationId = id;
+    },
+    
+    get recordingCanvas() {
+        return this._recordingCanvas;
+    },
+    
+    set recordingCanvas(canvas) {
+        this._recordingCanvas = canvas;
+    },
+    
+    get previewCanvas() {
+        return this._previewCanvas;
+    },
+    
+    set previewCanvas(canvas) {
+        this._previewCanvas = canvas;
+    },
+    
+    get screenVideo() {
+        return this._screenVideo;
+    },
+    
+    set screenVideo(video) {
+        this._screenVideo = video;
+    },
+    
+    get cameraVideo() {
+        return this._cameraVideo;
+    },
+    
+    set cameraVideo(video) {
+        this._cameraVideo = video;
+    },
+    
+    get screenStream() {
+        return this._screenStream;
+    },
+    
+    set screenStream(stream) {
+        this._screenStream = stream;
+    },
+    
+    get cameraStream() {
+        return this._cameraStream;
+    },
+    
+    set cameraStream(stream) {
+        this._cameraStream = stream;
+    },
+    
+    get micStream() {
+        return this._micStream;
+    },
+    
+    set micStream(stream) {
+        this._micStream = stream;
+    },
+    
+    get audioContext() {
+        return this._audioContext;
+    },
+    
+    set audioContext(ctx) {
+        this._audioContext = ctx;
+    },
+    
+    get currentVideoId() {
+        return this._currentVideoId;
+    },
+    
+    set currentVideoId(id) {
+        this._currentVideoId = id;
+    },
+    
+    get draftInterval() {
+        return this._draftInterval;
+    },
+    
+    set draftInterval(interval) {
+        this._draftInterval = interval;
+    },
+    
+    // ============================================
+    // DRAFT MANAGEMENT
+    // ============================================
+    
+    get currentDraft() {
+        return this._currentDraft ? { ...this._currentDraft } : null;
+    },
+    
+    saveDraft() {
+        if (this._recordedChunks.length > 0) {
+            this._currentDraft = {
+                chunks: this._recordedChunks.slice(),
+                config: { ...this._config },
+                timestamp: Date.now()
+            };
+            this._persistDraft();
+        }
+    },
+    
+    clearDraft() {
+        this._currentDraft = null;
+        this._clearDraftStorage();
+    },
+    
+    // ============================================
+    // PERSISTENCE (localStorage)
+    // ============================================
+    
+    _persistConfig() {
+        try {
+            const state = {
+                version: STATE_VERSION,
+                config: this._config,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(`${STORAGE_KEY}_config`, JSON.stringify(state));
+        } catch (e) {
+            console.warn('Failed to persist config:', e);
+        }
+    },
+    
+    _persistDraft() {
+        try {
+            sessionStorage.setItem(`${STORAGE_KEY}_draft`, JSON.stringify(this._currentDraft));
+        } catch (e) {
+            console.warn('Failed to persist draft:', e);
+        }
+    },
+    
+    _clearDraftStorage() {
+        try {
+            sessionStorage.removeItem(`${STORAGE_KEY}_draft`);
+        } catch (e) {
+            // Ignore
+        }
+    },
+    
+    _migrateState(oldState) {
+        // Future migration logic goes here
+        // For now, just return the config part
+        if (oldState && oldState.config) {
+            return {
+                version: STATE_VERSION,
+                config: oldState.config,
+                timestamp: Date.now()
+            };
+        }
+        return null;
+    },
+    
+    restoreConfig() {
+        try {
+            const stored = localStorage.getItem(`${STORAGE_KEY}_config`);
+            if (stored) {
+                const state = JSON.parse(stored);
+                
+                // Check version and migrate if needed
+                if (state.version && state.version < STATE_VERSION) {
+                    const migrated = this._migrateState(state);
+                    if (migrated) {
+                        this._config = migrated.config;
+                        this._persistConfig();
+                        return true;
+                    }
+                }
+                
+                // Validate config
+                if (state.config) {
+                    const validated = {};
+                    Object.entries(state.config).forEach(([key, value]) => {
+                        if (VALID_CONFIG_KEYS.includes(key) && typeof value === VALID_CONFIG_VALUES[key]) {
+                            validated[key] = value;
+                        }
+                    });
+                    this._config = { ...this._config, ...validated };
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to restore config:', e);
+        }
+        return false;
+    },
+    
+    async recoverDraft() {
+        try {
+            const draftData = sessionStorage.getItem(`${STORAGE_KEY}_draft`);
+            if (draftData) {
+                const draft = JSON.parse(draftData);
+                // Check if draft is less than 24 hours old
+                if (Date.now() - draft.timestamp < 24 * 60 * 60 * 1000) {
+                    return draft;
+                } else {
+                    this.clearDraft(); // Draft too old
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to recover draft:', err);
+            this.clearDraft();
+        }
+        return null;
+    },
+    
+    // ============================================
+    // STATE RESET
+    // ============================================
+    
+    resetRecordingState() {
+        this._recordedChunks = [];
+        this._mediaRecorder = null;
+        this._mediaStream = null;
+        this._animationId = null;
+        this._recordingCanvas = null;
+        this._previewCanvas = null;
+        this._screenVideo = null;
+        this._cameraVideo = null;
+        this._screenStream = null;
+        this._cameraStream = null;
+        this._micStream = null;
+        this._isRecording = false;
+        this._audioContext = null;
+        this._currentVideoId = null;
+        
+        if (this._draftInterval) {
+            clearInterval(this._draftInterval);
+            this._draftInterval = null;
+        }
+    }
+};
 
 // ============================================
 // MEMORY MANAGEMENT & PERFORMANCE MODULE
@@ -244,28 +603,28 @@ const PerformanceMonitor = {
 // Centralized Cleanup Function - releases all resources
 function cleanupAll() {
     // Stop draft interval
-    if (draftInterval) {
-        clearInterval(draftInterval);
-        draftInterval = null;
+    if (AppState.draftInterval) {
+        clearInterval(AppState.draftInterval);
+        AppState.draftInterval = null;
     }
     
     // Cancel animation frames
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
+    if (AppState.animationId) {
+        cancelAnimationFrame(AppState.animationId);
+        AppState.animationId = null;
     }
     
     // Stop media recorder
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    if (AppState.mediaRecorder && AppState.mediaRecorder.state !== 'inactive') {
         try {
-            mediaRecorder.stop();
+            AppState.mediaRecorder.stop();
         } catch (e) {
             // Ignore
         }
     }
     
     // Stop all media streams
-    [mediaStream, screenStream, cameraStream, micStream].forEach(stream => {
+    [AppState.mediaStream, AppState.screenStream, AppState.cameraStream, AppState.micStream].forEach(stream => {
         if (stream) {
             stream.getTracks().forEach(track => {
                 try {
@@ -279,37 +638,27 @@ function cleanupAll() {
     
     // Close audio contexts
     AudioContextManager.closeAll();
-    audioContext = null;
+    AppState.audioContext = null;
     
     // Revoke all object URLs
     URLManager.revokeAll();
     
     // Clean up video elements
-    [screenVideo, cameraVideo].forEach(video => {
+    [AppState.screenVideo, AppState.cameraVideo].forEach(video => {
         if (video) {
             video.pause();
             video.srcObject = null;
-            video = null;
         }
     });
     
     // Remove preview canvas
-    if (previewCanvas) {
-        previewCanvas.remove();
-        previewCanvas = null;
+    if (AppState.previewCanvas) {
+        AppState.previewCanvas.remove();
+        AppState.previewCanvas = null;
     }
     
     // Reset state
-    mediaStream = null;
-    screenStream = null;
-    cameraStream = null;
-    micStream = null;
-    mediaRecorder = null;
-    recordedChunks = [];
-    recordingCanvas = null;
-    screenVideo = null;
-    cameraVideo = null;
-    isRecording = false;
+    AppState.resetRecordingState();
     
     // Stop performance monitoring
     PerformanceMonitor.stop();
@@ -489,6 +838,7 @@ async function estimateStorageUsage() {
 }
 
 function updateConfigSummary() {
+    const config = AppState.config;
     const active = Object.entries(config).filter(([k, v]) => v).map(([k]) => k.replace(/([A-Z])/g, ' $1').trim()).join(', ');
     configSummary.textContent = active ? `Selected: ${active}` : 'Select inputs to start';
     startBtn.disabled = !Object.values(config).some(v => v);
@@ -550,9 +900,10 @@ async function waitForVideoDimensions(video) {
 }
 
 async function saveVideo() {
-    if (!recordedChunks.length) return;
+    const chunks = AppState.recordedChunks;
+    if (!chunks.length) return;
 
-    const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+    const videoBlob = new Blob(chunks, { type: 'video/webm' });
     const size = videoBlob.size;
     const maxSize = 500 * 1024 * 1024; // 500MB limit
 
@@ -591,14 +942,14 @@ async function saveVideo() {
         date: new Date().toISOString(),
         thumbnail,
         videoBlob, // Store as Blob
-        config,
+        config: AppState.config,
         duration,
         size
     };
 
     try {
         await addVideo(videoObj);
-        clearDraft(); // Clear draft after successful save
+        AppState.clearDraft(); // Clear draft after successful save
         populateSavedList();
         await checkQuota();
         showToast('Recording saved!', 'success');
@@ -620,12 +971,12 @@ function downloadVideo(blob, filename) {
 }
 
 function stopRecording() {
-    isRecording = false;
+    AppState.isRecording = false;
     
     // Stop draft interval
-    if (draftInterval) {
-        clearInterval(draftInterval);
-        draftInterval = null;
+    if (AppState.draftInterval) {
+        clearInterval(AppState.draftInterval);
+        AppState.draftInterval = null;
     }
     
     // Stop performance monitoring and get stats
@@ -646,16 +997,16 @@ function stopRecording() {
     }
     
     // Stop media recorder
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
+    if (AppState.mediaRecorder && AppState.mediaRecorder.state === 'recording') {
         try {
-            mediaRecorder.stop();
+            AppState.mediaRecorder.stop();
         } catch (e) {
             // Ignore
         }
     }
     
     // Stop all media streams
-    [mediaStream, screenStream, cameraStream, micStream].forEach(stream => {
+    [AppState.mediaStream, AppState.screenStream, AppState.cameraStream, AppState.micStream].forEach(stream => {
         if (stream) {
             stream.getTracks().forEach(track => {
                 try {
@@ -668,19 +1019,19 @@ function stopRecording() {
     });
     
     // Close audio context
-    if (audioContext) {
-        AudioContextManager.close(audioContext);
-        audioContext = null;
+    if (AppState.audioContext) {
+        AudioContextManager.close(AppState.audioContext);
+        AppState.audioContext = null;
     }
     
     // Cancel animation
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
+    if (AppState.animationId) {
+        cancelAnimationFrame(AppState.animationId);
+        AppState.animationId = null;
     }
     
     // Clean up video elements
-    [screenVideo, cameraVideo].forEach(video => {
+    [AppState.screenVideo, AppState.cameraVideo].forEach(video => {
         if (video) {
             video.pause();
             if (video.srcObject) {
@@ -692,29 +1043,23 @@ function stopRecording() {
     
     stopBtn.style.display = 'none';
     previewVideo.srcObject = null;
-    if (previewCanvas) {
-        previewCanvas.remove();
-        previewCanvas = null;
+    if (AppState.previewCanvas) {
+        AppState.previewCanvas.remove();
+        AppState.previewCanvas = null;
     }
     pipInfo.classList.add('hidden');
     previewVideo.style.display = 'block'; // Ensure video is visible for next time
     previewArea.classList.add('hidden');
     saveVideo();
-    recordedChunks = [];
-    mediaRecorder = null;
-    mediaStream = null;
-    screenStream = null;
-    cameraStream = null;
-    micStream = null;
-    screenVideo = null;
-    cameraVideo = null;
-    recordingCanvas = null;
+    AppState.clearRecordedChunks();
+    AppState.resetRecordingState();
     startBtn.disabled = false;
     updateToggles(false);
 }
 
 // Media stream setup
 async function getStream() {
+    const config = AppState.config;
     const streams = [];
     let audioStream = null;
     let mixedAudioTrack = null;
@@ -722,13 +1067,13 @@ async function getStream() {
     if (config.screen) {
         const controller = new CaptureController();
         try {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({
+            AppState.screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
                 audio: config.systemAudio ? { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 } : false,
                 controller: controller
             });
             // Check the display surface type
-            const videoTrack = screenStream.getVideoTracks()[0];
+            const videoTrack = AppState.screenStream.getVideoTracks()[0];
             const settings = videoTrack.getSettings();
 
             // Only set focus behavior if it's a tab or window (not entire screen)
@@ -736,7 +1081,7 @@ async function getStream() {
                 controller.setFocusBehavior('no-focus-change');
             }
 
-            streams.push(screenStream);
+            streams.push(AppState.screenStream);
         } catch (err) {
             if (err.name === 'NotAllowedError') {
                 ErrorHandler.handlePermissionDenied('screen');
@@ -749,8 +1094,8 @@ async function getStream() {
 
     if (config.camera) {
         try {
-            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
-            streams.push(cameraStream);
+            AppState.cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+            streams.push(AppState.cameraStream);
         } catch (err) {
             if (err.name === 'NotAllowedError') {
                 ErrorHandler.handlePermissionDenied('camera');
@@ -763,7 +1108,7 @@ async function getStream() {
 
     if (config.mic) {
         try {
-            micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+            AppState.micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
             if (streams.length === 0) streams.push(new MediaStream()); // Empty video if only audio
         } catch (err) {
             if (err.name === 'NotAllowedError') {
@@ -776,18 +1121,18 @@ async function getStream() {
     }
 
     // Store audioStream for later use
-    audioStream = micStream;
+    audioStream = AppState.micStream;
 
     if (streams.length === 0) return null;
 
     // Mix audio if both mic and system audio are enabled
     if (config.mic && config.systemAudio && audioStream && streams[0] && streams[0].getAudioTracks().length > 0) {
         try {
-            audioContext = AudioContextManager.create();
-            if (audioContext) {
-                const micSource = audioContext.createMediaStreamSource(audioStream);
-                const systemSource = audioContext.createMediaStreamSource(new MediaStream(streams[0].getAudioTracks()));
-                const destination = audioContext.createMediaStreamDestination();
+            AppState.audioContext = AudioContextManager.create();
+            if (AppState.audioContext) {
+                const micSource = AppState.audioContext.createMediaStreamSource(audioStream);
+                const systemSource = AppState.audioContext.createMediaStreamSource(new MediaStream(streams[0].getAudioTracks()));
+                const destination = AppState.audioContext.createMediaStreamDestination();
                 micSource.connect(destination);
                 systemSource.connect(destination);
                 mixedAudioTrack = destination.stream.getAudioTracks()[0];
@@ -817,23 +1162,25 @@ async function getStream() {
 }
 
 async function startRecording() {
+    const config = AppState.config;
+    
     try {
         // Start performance monitoring
         PerformanceMonitor.start();
         
-        mediaStream = await getStream();
-        if (!mediaStream) {
+        AppState.mediaStream = await getStream();
+        if (!AppState.mediaStream) {
             PerformanceMonitor.stop();
             ErrorHandler.handle(null, 'No valid inputs selected or permissions granted.');
             return;
         }
 
-        let recordingStream = mediaStream;
+        let recordingStream = AppState.mediaStream;
 
         if (config.screen && config.camera) {
             // Extract and clone video tracks for overlay preview
-            const originalScreenTrack = mediaStream.getVideoTracks()[0];
-            const originalCameraTrack = mediaStream.getVideoTracks()[1];
+            const originalScreenTrack = AppState.mediaStream.getVideoTracks()[0];
+            const originalCameraTrack = AppState.mediaStream.getVideoTracks()[1];
 
             const screenTrack = originalScreenTrack.clone();
             const cameraTrack = originalCameraTrack.clone();
@@ -843,24 +1190,24 @@ async function startRecording() {
             const canvasWidth = screenSettings.width || 1920;
             const canvasHeight = screenSettings.height || 1080;
 
-            screenVideo = document.createElement('video');
-            cameraVideo = document.createElement('video');
-            screenVideo.muted = true;
-            cameraVideo.muted = true;
+            AppState.screenVideo = document.createElement('video');
+            AppState.cameraVideo = document.createElement('video');
+            AppState.screenVideo.muted = true;
+            AppState.cameraVideo.muted = true;
 
             const screenPromise = new Promise((resolve) => {
-                screenVideo.onloadeddata = () => {
-                    screenVideo.play().then(() => resolve()).catch(console.error);
+                AppState.screenVideo.onloadeddata = () => {
+                    AppState.screenVideo.play().then(() => resolve()).catch(console.error);
                 };
             });
             const cameraPromise = new Promise((resolve) => {
-                cameraVideo.onloadeddata = () => {
-                    cameraVideo.play().then(() => resolve()).catch(console.error);
+                AppState.cameraVideo.onloadeddata = () => {
+                    AppState.cameraVideo.play().then(() => resolve()).catch(console.error);
                 };
             });
 
-            screenVideo.srcObject = new MediaStream([screenTrack]);
-            cameraVideo.srcObject = new MediaStream([cameraTrack]);
+            AppState.screenVideo.srcObject = new MediaStream([screenTrack]);
+            AppState.cameraVideo.srcObject = new MediaStream([cameraTrack]);
 
             await Promise.all([screenPromise, cameraPromise]);
 
@@ -868,42 +1215,42 @@ async function startRecording() {
             const ctx = canvas.getContext('2d');
             if (!ctx) {
                 ErrorHandler.handle(null, 'Canvas not supported');
-                previewVideo.srcObject = mediaStream;
+                previewVideo.srcObject = AppState.mediaStream;
                 previewArea.classList.remove('hidden');
                 stopBtn.style.display = 'block';
                 startBtn.disabled = true;
-                recordedChunks = [];
-                mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp9' });
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) recordedChunks.push(e.data);
+                AppState.clearRecordedChunks();
+                AppState.mediaRecorder = new MediaRecorder(AppState.mediaStream, { mimeType: 'video/webm;codecs=vp9' });
+                AppState.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) AppState.addRecordedChunk(e.data);
                 };
-                mediaRecorder.onstop = stopRecording;
-                mediaRecorder.onerror = (e) => {
+                AppState.mediaRecorder.onstop = stopRecording;
+                AppState.mediaRecorder.onerror = (e) => {
                     ErrorHandler.handle(e.error, `Recording error: ${e.error}`);
                     stopRecording();
                 };
-                mediaRecorder.start();
+                AppState.mediaRecorder.start();
                 showToast('Recording started...');
                 return;
             }
 
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
-            recordingCanvas = canvas;
+            AppState.recordingCanvas = canvas;
 
-            const audioTracks = mediaStream.getAudioTracks();
+            const audioTracks = AppState.mediaStream.getAudioTracks();
 
             const draw = () => {
                 PerformanceMonitor.frame();
                 
-                if (screenVideo.paused && screenVideo.srcObject) screenVideo.play().catch(console.error);
-                if (cameraVideo.paused && cameraVideo.srcObject) cameraVideo.play().catch(console.error);
+                if (AppState.screenVideo.paused && AppState.screenVideo.srcObject) AppState.screenVideo.play().catch(console.error);
+                if (AppState.cameraVideo.paused && AppState.cameraVideo.srcObject) AppState.cameraVideo.play().catch(console.error);
 
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                if (screenVideo.readyState >= 2) {
-                    ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+                if (AppState.screenVideo.readyState >= 2) {
+                    ctx.drawImage(AppState.screenVideo, 0, 0, canvas.width, canvas.height);
                 }
-                if (cameraVideo.readyState >= 2) {
+                if (AppState.cameraVideo.readyState >= 2) {
                     // Rounded rectangle camera overlay at bottom right, preserving aspect ratio
                     const overlayWidth = canvas.width * 0.2; // 20% of screen width
                     const camAspect = cameraSettings.width / cameraSettings.height;
@@ -925,10 +1272,10 @@ async function startRecording() {
                     ctx.quadraticCurveTo(x, y, x + cornerRadius, y);
                     ctx.closePath();
                     ctx.clip();
-                    ctx.drawImage(cameraVideo, x, y, overlayWidth, overlayHeight);
+                    ctx.drawImage(AppState.cameraVideo, x, y, overlayWidth, overlayHeight);
                     ctx.restore();
                 }
-                animationId = requestAnimationFrame(draw);
+                AppState.animationId = requestAnimationFrame(draw);
             };
 
             draw();
@@ -937,46 +1284,46 @@ async function startRecording() {
             audioTracks.forEach(track => recordingStream.addTrack(track));
 
             // For preview, use the canvas
-            previewCanvas = canvas;
-            previewCanvas.style.display = 'block';
-            previewCanvas.style.width = '100%';
-            previewCanvas.style.maxWidth = '800px';
-            previewCanvas.style.height = 'auto';
-            previewCanvas.style.borderRadius = '10px';
-            previewCanvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
-            previewArea.insertBefore(previewCanvas, previewVideo);
+            AppState.previewCanvas = canvas;
+            AppState.previewCanvas.style.display = 'block';
+            AppState.previewCanvas.style.width = '100%';
+            AppState.previewCanvas.style.maxWidth = '800px';
+            AppState.previewCanvas.style.height = 'auto';
+            AppState.previewCanvas.style.borderRadius = '10px';
+            AppState.previewCanvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+            previewArea.insertBefore(AppState.previewCanvas, previewVideo);
             previewVideo.style.display = 'none';
         } else {
-            previewVideo.srcObject = mediaStream;
+            previewVideo.srcObject = AppState.mediaStream;
         }
         previewArea.classList.remove('hidden');
         stopBtn.style.display = 'block';
         startBtn.disabled = true;
 
-        recordedChunks = [];
-        mediaRecorder = new MediaRecorder(recordingStream, { mimeType: 'video/webm;codecs=vp9' });
+        AppState.clearRecordedChunks();
+        AppState.mediaRecorder = new MediaRecorder(recordingStream, { mimeType: 'video/webm;codecs=vp9' });
 
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) recordedChunks.push(e.data);
+        AppState.mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) AppState.addRecordedChunk(e.data);
         };
 
-        mediaRecorder.onstop = stopRecording;
+        AppState.mediaRecorder.onstop = stopRecording;
 
-        mediaRecorder.onerror = (e) => {
+        AppState.mediaRecorder.onerror = (e) => {
             ErrorHandler.handle(e.error, `Recording error: ${e.error}`);
             stopRecording();
         };
 
-        mediaRecorder.start();
-        isRecording = true;
+        AppState.mediaRecorder.start();
+        AppState.isRecording = true;
         
         // Auto-save draft every 30 seconds during recording
-        draftInterval = setInterval(() => {
-            if (isRecording) {
-                saveDraft();
+        AppState.draftInterval = setInterval(() => {
+            if (AppState.isRecording) {
+                AppState.saveDraft();
             } else {
-                clearInterval(draftInterval);
-                draftInterval = null;
+                clearInterval(AppState.draftInterval);
+                AppState.draftInterval = null;
             }
         }, 30000);
         
@@ -994,12 +1341,12 @@ async function startRecording() {
 
 // Handle tab visibility changes for background pause/resume
 document.addEventListener('visibilitychange', () => {
-    if (isRecording) {
+    if (AppState.isRecording) {
         if (document.hidden) {
             showToast('⚠️ Tab inactive - recording may pause. Keep this tab active for continuous recording.', 'warning');
             // Try to enter Picture-in-Picture for camera video to maintain focus
-            if (cameraVideo && document.pictureInPictureEnabled) {
-                cameraVideo.requestPictureInPicture().then(() => {
+            if (AppState.cameraVideo && document.pictureInPictureEnabled) {
+                AppState.cameraVideo.requestPictureInPicture().then(() => {
                     showToast('Camera entered Picture-in-Picture mode to maintain recording.', 'info');
                 }).catch(err => {
                     ErrorHandler.log(err, 'Picture-in-Picture');
@@ -1012,11 +1359,11 @@ document.addEventListener('visibilitychange', () => {
             }
         } else {
             // Resume videos on tab focus
-            if (screenVideo && screenVideo.paused) {
-                screenVideo.play().catch(err => ErrorHandler.log(err, 'screenVideo resume'));
+            if (AppState.screenVideo && AppState.screenVideo.paused) {
+                AppState.screenVideo.play().catch(err => ErrorHandler.log(err, 'screenVideo resume'));
             }
-            if (cameraVideo && cameraVideo.paused) {
-                cameraVideo.play().catch(err => ErrorHandler.log(err, 'cameraVideo resume'));
+            if (AppState.cameraVideo && AppState.cameraVideo.paused) {
+                AppState.cameraVideo.play().catch(err => ErrorHandler.log(err, 'cameraVideo resume'));
             }
             // Exit Picture-in-Picture if active
             if (document.pictureInPictureElement) {
@@ -1027,10 +1374,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // UI Event Listeners
-screenToggle.addEventListener('change', (e) => { config.screen = e.target.checked; updateConfigSummary(); });
-cameraToggle.addEventListener('change', (e) => { config.camera = e.target.checked; updateConfigSummary(); });
-micToggle.addEventListener('change', (e) => { config.mic = e.target.checked; updateConfigSummary(); });
-systemAudioToggle.addEventListener('change', (e) => { config.systemAudio = e.target.checked; updateConfigSummary(); });
+screenToggle.addEventListener('change', (e) => { AppState.setConfig('screen', e.target.checked); updateConfigSummary(); });
+cameraToggle.addEventListener('change', (e) => { AppState.setConfig('camera', e.target.checked); updateConfigSummary(); });
+micToggle.addEventListener('change', (e) => { AppState.setConfig('mic', e.target.checked); updateConfigSummary(); });
+systemAudioToggle.addEventListener('change', (e) => { AppState.setConfig('systemAudio', e.target.checked); updateConfigSummary(); });
 
 startBtn.addEventListener('click', startRecording);
 stopBtn.addEventListener('click', stopRecording);
@@ -1060,8 +1407,8 @@ newRecording.addEventListener('click', () => {
 });
 
 enablePipBtn.addEventListener('click', () => {
-    if (cameraVideo && !document.pictureInPictureElement) {
-        cameraVideo.requestPictureInPicture().then(() => {
+    if (AppState.cameraVideo && !document.pictureInPictureElement) {
+        AppState.cameraVideo.requestPictureInPicture().then(() => {
             showToast('Camera entered Picture-in-Picture mode!', 'success');
             pipInfo.classList.add('hidden');
         }).catch(err => {
@@ -1179,60 +1526,6 @@ function populateSavedList() {
     });
 }
 
-// Draft saving for crash recovery
-let currentDraft = null;
-
-function saveDraft() {
-    if (recordedChunks.length > 0) {
-        currentDraft = {
-            chunks: recordedChunks.slice(),
-            config: { ...config },
-            timestamp: Date.now()
-        };
-        // Store in sessionStorage for crash recovery
-        try {
-            sessionStorage.setItem('screenrecord_draft', JSON.stringify(currentDraft));
-        } catch (e) {
-            ErrorHandler.log(e, 'sessionStorage');
-        }
-    }
-}
-
-function clearDraft() {
-    currentDraft = null;
-    try {
-        sessionStorage.removeItem('screenrecord_draft');
-    } catch (e) {
-        // Ignore
-    }
-}
-
-async function recoverDraft() {
-    try {
-        const draftData = sessionStorage.getItem('screenrecord_draft');
-        if (draftData) {
-            const draft = JSON.parse(draftData);
-            // Check if draft is less than 24 hours old
-            if (Date.now() - draft.timestamp < 24 * 60 * 60 * 1000) {
-                if (confirm('Found a previous recording session that wasn\'t saved. Would you like to recover it?')) {
-                    recordedChunks = draft.chunks;
-                    config = draft.config;
-                    await saveVideo();
-                    clearDraft();
-                    showToast('Draft recovered successfully!', 'success');
-                } else {
-                    clearDraft();
-                }
-            } else {
-                clearDraft(); // Draft too old
-            }
-        }
-    } catch (err) {
-        ErrorHandler.log(err, 'recoverDraft');
-        clearDraft();
-    }
-}
-
 async function playVideo(id) {
     try {
         const video = await getVideo(id);
@@ -1310,29 +1603,51 @@ if (!navigator.mediaDevices.getDisplayMedia) {
 
 // Init
 document.addEventListener('DOMContentLoaded', async () => {
+    // Restore config from localStorage
+    AppState.restoreConfig();
+    
+    // Update UI to reflect restored config
+    const config = AppState.config;
+    screenToggle.checked = config.screen;
+    cameraToggle.checked = config.camera;
+    micToggle.checked = config.mic;
+    systemAudioToggle.checked = config.systemAudio;
+    
     updateConfigSummary();
     populateSavedList();
     await checkQuota();
+    
     // Expose functions for onclick
     window.playVideo = playVideo;
     window.downloadSaved = downloadSaved;
     window.deleteVideo = deleteVideo;
+    
     // Try to recover any draft from previous session
-    await recoverDraft();
+    const draft = await AppState.recoverDraft();
+    if (draft) {
+        if (confirm('Found a previous recording session that wasn\'t saved. Would you like to recover it?')) {
+            AppState.recordedChunks = draft.chunks;
+            AppState.setConfigBatch(draft.config);
+            await saveVideo();
+            showToast('Draft recovered successfully!', 'success');
+        } else {
+            AppState.clearDraft();
+        }
+    }
 });
 
 // Save draft before page unload
 window.addEventListener('beforeunload', () => {
-    saveDraft();
+    AppState.saveDraft();
     // Perform full cleanup on page unload
     cleanupAll();
 });
 
 // Handle page visibility change - save draft and cleanup if needed
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isRecording) {
+    if (document.hidden && AppState.isRecording) {
         // Save draft when tab becomes hidden
-        saveDraft();
+        AppState.saveDraft();
     }
 });
 

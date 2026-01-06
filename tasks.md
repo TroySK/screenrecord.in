@@ -51,12 +51,12 @@
   - Show warnings when performance degrades
 
 ### 1.3 State Management Refactor
-- [ ] **Eliminate global variables**
+- [x] **Eliminate global variables**
   - Create centralized `AppState` object with getters/setters
   - Encapsulate all recording state (streams, chunks, config)
   - Implement state validation and immutability for critical values
 
-- [ ] **Implement state persistence**
+- [x] **Implement state persistence**
   - Save recording configuration to localStorage
   - Restore state on page reload (including partial recordings)
   - Add version migration for stored state
