@@ -59,6 +59,9 @@ const DEFAULT_CONFIG = {
     EMPTY_RECORDINGS_MESSAGE: 'No recordings yet. Start your first one!',
     ERROR_LOADING_MESSAGE: 'Error loading recordings.',
     
+    // Pagination
+    PAGINATION_PAGE_SIZE: 10,
+    
     // Error messages
     BROWSER_NOT_SUPPORTED_TITLE: 'Browser Not Fully Supported',
     BROWSER_NOT_SUPPORTED_MESSAGE: 'Some features may not work. Please use a modern browser like Chrome, Firefox, or Edge.',

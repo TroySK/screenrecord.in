@@ -3,7 +3,7 @@
 // ============================================
 
 import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG, Capabilities, initCapabilitiesUI } from './utils.js';
-import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo } from './storage.js';
+import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo, getVideosPaginated, getVideosCount } from './storage.js';
 import { startRecording, stopRecording, RecordingState } from './recording.js';
 import { Validator, RecordingConfigValidator, StorageValidator, ValidationMessages } from './validation.js';
 
@@ -26,6 +26,8 @@ export const elements = {
     sidebar: null,
     toggleSidebar: null,
     savedList: null,
+    savedListHeader: null,
+    loadMoreBtn: null,
     clearAll: null,
     newRecording: null,
     modal: null,
@@ -35,6 +37,30 @@ export const elements = {
     storageInfo: null,
     errorNotifications: null,
     downloadLast: null
+};
+
+// ============================================
+// PAGINATION STATE
+// ============================================
+
+export const PaginationState = {
+    currentPage: 1,
+    totalCount: 0,
+    hasMore: false,
+    isLoading: false,
+    allVideos: [], // Cache all loaded videos
+    
+    reset() {
+        this.currentPage = 1;
+        this.totalCount = 0;
+        this.hasMore = false;
+        this.isLoading = false;
+        this.allVideos = [];
+    },
+    
+    get isFirstLoad() {
+        return this.currentPage === 1 && this.allVideos.length === 0;
+    }
 };
 
 // Initialize element references
@@ -53,6 +79,8 @@ export function initElements() {
     elements.sidebar = document.getElementById('sidebar');
     elements.toggleSidebar = document.getElementById('toggle-sidebar');
     elements.savedList = document.getElementById('saved-list');
+    elements.savedListHeader = document.getElementById('saved-list-header');
+    elements.loadMoreBtn = document.getElementById('load-more-btn');
     elements.clearAll = document.getElementById('clear-all');
     elements.newRecording = document.getElementById('new-recording');
     elements.modal = document.getElementById('modal-player');
@@ -181,100 +209,187 @@ export async function updateStorageInfo() {
 // SAVED RECORDINGS LIST
 // ============================================
 
-export async function populateSavedList() {
+/**
+ * Create a video card element for a single recording
+ * @param {Object} video - Video object from database
+ * @returns {HTMLElement} - The card element
+ */
+function createVideoCard(video) {
+    const card = createElement('div', { className: 'saved-card' });
+    
+    // Thumbnail
+    const thumbnail = createElement('img', {
+        src: video.thumbnail,
+        alt: 'Thumbnail'
+    });
+    
+    const info = createElement('div', { className: 'saved-card-info' });
+    
+    // Title
+    const title = createElement('h3', {
+        textContent: sanitizeTitle(video.title)
+    });
+    
+    // Date and duration
+    const dateStr = formatDate(video.date);
+    const durationStr = `${(video.duration || 0).toFixed(1)}s`;
+    const meta1 = createElement('p', { textContent: `${dateStr} | ${durationStr}` });
+    
+    // Config
+    const configStr = Object.keys(video.config)
+        .filter(k => video.config[k])
+        .map(k => k.replace(/([A-Z])/g, ' $1').trim())
+        .join(', ');
+    const meta2 = createElement('p', { textContent: `Config: ${configStr}` });
+    
+    // Size
+    const sizeStr = formatFileSize(video.size || 0);
+    const meta3 = createElement('p', { textContent: `Size: ${sizeStr}` });
+    
+    info.appendChild(title);
+    info.appendChild(meta1);
+    info.appendChild(meta2);
+    info.appendChild(meta3);
+    
+    const actions = createElement('div', { className: 'saved-card-actions' });
+    
+    const playBtn = createElement('button', {
+        className: 'play-btn',
+        textContent: 'Play',
+        onclick: () => playVideo(video.id)
+    });
+    
+    const downloadBtn = createElement('button', {
+        className: 'download-btn',
+        textContent: 'Download',
+        onclick: () => downloadSaved(video.id, showToast)
+    });
+    
+    const deleteBtn = createElement('button', {
+        className: 'delete-btn',
+        textContent: 'Delete',
+        onclick: () => deleteVideo(video.id, showToast).then(() => {
+            populateSavedList();
+            updateStorageInfo();
+        })
+    });
+    
+    actions.appendChild(playBtn);
+    actions.appendChild(downloadBtn);
+    actions.appendChild(deleteBtn);
+    
+    card.appendChild(thumbnail);
+    card.appendChild(info);
+    card.appendChild(actions);
+    
+    return card;
+}
+
+/**
+ * Update the saved list header with total count
+ */
+function updateSavedListHeader() {
+    if (!elements.savedListHeader) return;
+    
+    const { totalCount, allVideos } = PaginationState;
+    
+    if (totalCount === 0) {
+        elements.savedListHeader.textContent = 'Saved Recordings';
+    } else {
+        elements.savedListHeader.textContent = `Saved Recordings (${totalCount} total)`;
+    }
+}
+
+/**
+ * Update the load more button visibility and state
+ */
+function updateLoadMoreButton() {
+    if (!elements.loadMoreBtn) return;
+    
+    const { hasMore, isLoading, allVideos } = PaginationState;
+    
+    if (hasMore) {
+        elements.loadMoreBtn.style.display = 'block';
+        elements.loadMoreBtn.disabled = isLoading;
+        elements.loadMoreBtn.textContent = isLoading ? 'Loading...' : `Load More (${allVideos.length} of ${PaginationState.totalCount})`;
+    } else {
+        elements.loadMoreBtn.style.display = 'none';
+    }
+}
+
+/**
+ * Populate saved recordings list with pagination
+ * @param {boolean} append - Whether to append to existing list (for load more)
+ */
+export async function populateSavedList(append = false) {
     if (!elements.savedList) return;
     
     try {
-        const videos = await getAllVideos();
-        elements.savedList.innerHTML = '';
+        // If first load, reset state and get total count
+        if (!append) {
+            PaginationState.reset();
+            PaginationState.totalCount = await getVideosCount();
+        }
         
-        if (videos.length === 0) {
+        // Get paginated videos
+        const result = await getVideosPaginated(PaginationState.allVideos.length, CONFIG.PAGINATION_PAGE_SIZE);
+        
+        // Update pagination state
+        PaginationState.hasMore = result.hasMore;
+        PaginationState.allVideos = [...PaginationState.allVideos, ...result.videos];
+        PaginationState.currentPage++;
+        
+        // Update UI
+        if (!append) {
+            elements.savedList.innerHTML = '';
+        }
+        
+        updateSavedListHeader();
+        
+        if (PaginationState.allVideos.length === 0) {
             const emptyMsg = createElement('p', {
                 className: 'empty-state',
                 textContent: CONFIG.EMPTY_RECORDINGS_MESSAGE
             });
             elements.savedList.appendChild(emptyMsg);
+            updateLoadMoreButton();
             return;
         }
         
-        videos.forEach(video => {
-            const card = createElement('div', { className: 'saved-card' });
-            
-            // Thumbnail
-            const thumbnail = createElement('img', {
-                src: video.thumbnail,
-                alt: 'Thumbnail'
-            });
-            
-            const info = createElement('div', { className: 'saved-card-info' });
-            
-            // Title
-            const title = createElement('h3', {
-                textContent: sanitizeTitle(video.title)
-            });
-            
-            // Date and duration
-            const dateStr = formatDate(video.date);
-            const durationStr = `${(video.duration || 0).toFixed(1)}s`;
-            const meta1 = createElement('p', { textContent: `${dateStr} | ${durationStr}` });
-            
-            // Config
-            const configStr = Object.keys(video.config)
-                .filter(k => video.config[k])
-                .map(k => k.replace(/([A-Z])/g, ' $1').trim())
-                .join(', ');
-            const meta2 = createElement('p', { textContent: `Config: ${configStr}` });
-            
-            // Size
-            const sizeStr = formatFileSize(video.size || 0);
-            const meta3 = createElement('p', { textContent: `Size: ${sizeStr}` });
-            
-            info.appendChild(title);
-            info.appendChild(meta1);
-            info.appendChild(meta2);
-            info.appendChild(meta3);
-            
-            const actions = createElement('div', { className: 'saved-card-actions' });
-            
-            const playBtn = createElement('button', {
-                className: 'play-btn',
-                textContent: 'Play',
-                onclick: () => playVideo(video.id)
-            });
-            
-            const downloadBtn = createElement('button', {
-                className: 'download-btn',
-                textContent: 'Download',
-                onclick: () => downloadSaved(video.id, showToast)
-            });
-            
-            const deleteBtn = createElement('button', {
-                className: 'delete-btn',
-                textContent: 'Delete',
-                onclick: () => deleteVideo(video.id, showToast).then(() => {
-                    populateSavedList();
-                    updateStorageInfo();
-                })
-            });
-            
-            actions.appendChild(playBtn);
-            actions.appendChild(downloadBtn);
-            actions.appendChild(deleteBtn);
-            
-            card.appendChild(thumbnail);
-            card.appendChild(info);
-            card.appendChild(actions);
-            
+        // Add new videos to the list
+        result.videos.forEach(video => {
+            const card = createVideoCard(video);
             elements.savedList.appendChild(card);
         });
+        
+        updateLoadMoreButton();
     } catch (err) {
         console.error('Error loading recordings:', err);
-        elements.savedList.innerHTML = '';
+        if (!append) {
+            elements.savedList.innerHTML = '';
+        }
         const errorMsg = createElement('p', {
             className: 'empty-state',
             textContent: CONFIG.ERROR_LOADING_MESSAGE
         });
         elements.savedList.appendChild(errorMsg);
+    }
+}
+
+/**
+ * Load more recordings (for "Load More" button)
+ */
+export async function loadMoreRecordings() {
+    if (PaginationState.isLoading || !PaginationState.hasMore) return;
+    
+    PaginationState.isLoading = true;
+    updateLoadMoreButton();
+    
+    try {
+        await populateSavedList(true);
+    } finally {
+        PaginationState.isLoading = false;
+        updateLoadMoreButton();
     }
 }
 
@@ -428,6 +543,11 @@ export function setupEventListeners() {
         }
     });
     
+    // Load more button
+    elements.loadMoreBtn?.addEventListener('click', () => {
+        loadMoreRecordings();
+    });
+    
     // Close modal
     elements.closeModal?.addEventListener('click', () => {
         elements.modal?.classList.add('hidden');
@@ -531,4 +651,7 @@ export async function initUI() {
         populateSavedList();
         updateStorageInfo();
     });
+    
+    // Expose loadMore for inline onclick handlers
+    window.loadMoreRecordings = loadMoreRecordings;
 }

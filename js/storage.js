@@ -10,6 +10,9 @@ const DB_NAME = CONFIG.DB_NAME;
 const DB_VERSION = CONFIG.DB_VERSION;
 const STORE_NAME = CONFIG.STORE_NAME;
 
+// Pagination configuration
+const PAGINATION_PAGE_SIZE = CONFIG.PAGINATION_PAGE_SIZE || 10;
+
 // ============================================
 // DATABASE OPERATIONS
 // ============================================
@@ -61,6 +64,76 @@ export async function getAllVideos() {
         request.onsuccess = () => resolve(request.result.reverse()); // Newest first
         request.onerror = () => reject(request.error);
     });
+}
+
+/**
+ * Get total count of videos in database
+ * @returns {Promise<number>} - Total number of videos
+ */
+export async function getVideosCount() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.count();
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Get videos with pagination support
+ * @param {number} offset - Number of records to skip
+ * @param {number} limit - Maximum number of records to return
+ * @returns {Promise<Object>} - Object with videos array and pagination info
+ */
+export async function getVideosPaginated(offset = 0, limit = PAGINATION_PAGE_SIZE) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const index = store.index('date');
+        
+        // Get total count first
+        const countRequest = store.count();
+        countRequest.onsuccess = async () => {
+            const totalCount = countRequest.result;
+            
+            // Use IDBKeyRange to get records in reverse order (newest first)
+            // Since we want newest first, we need to get all and slice
+            const allRequest = store.getAll();
+            
+            allRequest.onsuccess = () => {
+                const allVideos = allRequest.result.reverse(); // Newest first
+                const videos = allVideos.slice(offset, offset + limit);
+                const hasMore = offset + limit < totalCount;
+                
+                resolve({
+                    videos,
+                    totalCount,
+                    hasMore,
+                    offset,
+                    limit,
+                    displayedCount: videos.length
+                });
+            };
+            
+            allRequest.onerror = () => reject(allRequest.error);
+        };
+        
+        countRequest.onerror = () => reject(countRequest.error);
+    });
+}
+
+/**
+ * Get videos for infinite scroll (loads next batch)
+ * @param {number} page - Page number (1-indexed)
+ * @returns {Promise<Object>} - Object with videos array and pagination info
+ */
+export async function getVideosPage(page = 1) {
+    const offset = (page - 1) * PAGINATION_PAGE_SIZE;
+    return getVideosPaginated(offset, PAGINATION_PAGE_SIZE);
 }
 
 export async function getVideo(id) {
