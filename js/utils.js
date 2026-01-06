@@ -261,6 +261,157 @@ export function exportConfig() {
     };
 }
 
+// ============================================
+// CAPABILITIES DETECTION
+// ============================================
+
+/**
+ * Browser capabilities detection object
+ * Detects support for various browser features and APIs
+ */
+export const Capabilities = {
+    // Screen sharing via getDisplayMedia
+    screenSharing: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+    
+    // Camera access via getUserMedia
+    camera: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    
+    // Microphone access via getUserMedia
+    microphone: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    
+    // Picture-in-Picture support
+    pictureInPicture: !!document.pictureInPictureEnabled,
+    
+    // MediaRecorder API support
+    mediaRecorder: !!window.MediaRecorder,
+    
+    // IndexedDB support
+    indexedDB: !!window.indexedDB,
+    
+    // MediaDevices API support
+    mediaDevices: !!(navigator.mediaDevices),
+    
+    // Secure context (required for some APIs)
+    secureContext: window.isSecureContext,
+    
+    // Mobile device detection
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+    
+    // Get all unsupported features
+    getUnsupported() {
+        const unsupported = [];
+        if (!this.screenSharing) unsupported.push('screenSharing');
+        if (!this.camera) unsupported.push('camera');
+        if (!this.microphone) unsupported.push('microphone');
+        if (!this.pictureInPicture) unsupported.push('pictureInPicture');
+        if (!this.mediaRecorder) unsupported.push('mediaRecorder');
+        if (!this.indexedDB) unsupported.push('indexedDB');
+        if (!this.mediaDevices) unsupported.push('mediaDevices');
+        if (!this.secureContext) unsupported.push('secureContext');
+        return unsupported;
+    },
+    
+    // Check if minimum requirements are met
+    isUsable() {
+        return this.mediaDevices && this.mediaRecorder && this.indexedDB;
+    },
+    
+    // Get user-friendly message for unsupported features
+    getMessage(feature) {
+        const messages = {
+            screenSharing: 'Screen sharing is not supported on this device or browser.',
+            camera: 'Camera access is not supported on this browser.',
+            microphone: 'Microphone access is not supported on this browser.',
+            pictureInPicture: 'Picture-in-Picture is not supported on this browser.',
+            mediaRecorder: 'Media recording is not supported on this browser.',
+            indexedDB: 'Local storage is not available on this browser.',
+            mediaDevices: 'Media devices are not supported on this browser.',
+            secureContext: 'This page must be served over HTTPS or localhost.'
+        };
+        return messages[feature] || `${feature} is not supported on this browser.`;
+    }
+};
+
+// ============================================
+// UI HELPERS FOR CAPABILITIES
+// ============================================
+
+/**
+ * Hide UI elements for unsupported features
+ * @param {Object} elementIds - Object mapping feature names to element IDs
+ */
+export function hideUnsupportedFeatures(elementIds = {}) {
+    Object.entries(elementIds).forEach(([feature, elementId]) => {
+        const element = document.getElementById(elementId);
+        if (element && !Capabilities[feature]) {
+            element.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Show graceful degradation message for unsupported features
+ * @param {string} feature - Feature name
+ * @param {string} containerId - ID of container to show message in
+ * @param {string} message - Optional custom message
+ */
+export function showCapabilityWarning(feature, containerId, message = null) {
+    if (Capabilities[feature]) return;
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const warning = document.createElement('div');
+    warning.className = 'capability-warning';
+    warning.dataset.feature = feature;
+    warning.textContent = message || Capabilities.getMessage(feature);
+    
+    container.appendChild(warning);
+}
+
+/**
+ * Initialize capability-based UI adjustments
+ */
+export function initCapabilitiesUI() {
+    // Hide screen sharing on mobile (not supported)
+    if (Capabilities.isMobile) {
+        const screenToggle = document.getElementById('screen-toggle');
+        const screenLabel = screenToggle?.closest('label');
+        if (screenLabel) {
+            screenLabel.style.display = 'none';
+        }
+        
+        const systemAudioToggle = document.getElementById('system-audio-toggle');
+        const systemAudioLabel = systemAudioToggle?.closest('label');
+        if (systemAudioLabel) {
+            systemAudioLabel.style.display = 'none';
+        }
+    }
+    
+    // Hide PiP button if not supported
+    if (!Capabilities.pictureInPicture) {
+        const pipInfo = document.getElementById('pip-info');
+        if (pipInfo) {
+            pipInfo.style.display = 'none';
+        }
+    }
+    
+    // Show warnings for critical unsupported features
+    if (!Capabilities.isUsable()) {
+        const mainContent = document.getElementById('main-content');
+        if (mainContent) {
+            const warning = document.createElement('div');
+            warning.className = 'browser-warning';
+            warning.innerHTML = `
+                <h3>${CONFIG.BROWSER_NOT_SUPPORTED_TITLE}</h3>
+                <p>${CONFIG.BROWSER_NOT_SUPPORTED_MESSAGE}</p>
+                <p>Unsupported features: ${Capabilities.getUnsupported().join(', ')}</p>
+            `;
+            mainContent.prepend(warning);
+        }
+    }
+}
+
 // State management
 export const STATE_VERSION = 1;
 export const STORAGE_KEY = CONFIG.STATE_STORAGE_KEY;

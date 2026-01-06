@@ -427,3 +427,38 @@ footer {
         right: -100%;
     }
 }
+
+/* Capability warnings */
+.capability-warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 5px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    color: #856404;
+    font-size: 0.9rem;
+}
+
+/* Browser not supported warning */
+.browser-warning {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    color: #721c24;
+}
+
+.browser-warning h3 {
+    margin-bottom: 0.5rem;
+    color: #721c24;
+}
+
+.browser-warning p {
+    margin-bottom: 0.5rem;
+}
+
+.browser-warning p:last-child {
+    font-size: 0.85rem;
+    opacity: 0.8;
+}

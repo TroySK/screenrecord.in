@@ -2,7 +2,7 @@
 // UI MODULE - DOM Manipulation
 // ============================================
 
-import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG } from './utils.js';
+import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG, Capabilities, initCapabilitiesUI } from './utils.js';
 import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo } from './storage.js';
 import { startRecording, stopRecording, RecordingState } from './recording.js';
 
@@ -451,6 +451,9 @@ export function toggleSidebar(forceState) {
 export async function initUI() {
     initElements();
     
+    // Initialize capabilities-based UI adjustments
+    initCapabilitiesUI();
+    
     // Restore config
     AppConfig.restore();
     
@@ -467,17 +470,37 @@ export async function initUI() {
     // Setup event listeners
     setupEventListeners();
     
-    // Check system audio support
-    if (!navigator.mediaDevices.getDisplayMedia) {
-        elements.systemAudioToggle.disabled = true;
-        elements.systemAudioToggle.title = 'System audio requires Chrome with flag or extension';
+    // Check system audio support using Capabilities
+    if (!Capabilities.screenSharing) {
+        if (elements.systemAudioToggle) {
+            elements.systemAudioToggle.disabled = true;
+            elements.systemAudioToggle.title = 'System audio requires Chrome with flag or extension';
+        }
         showToast('System audio may need browser extension.', 'info');
     }
     
-    // Check media devices support
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showToast('Media devices not supported in this browser.', 'error');
-        elements.startBtn.disabled = true;
+    // Check media devices support using Capabilities
+    if (!Capabilities.mediaDevices || !Capabilities.camera) {
+        showToast('Media devices not fully supported in this browser.', 'error');
+        if (elements.startBtn) elements.startBtn.disabled = true;
+    }
+    
+    // Disable camera toggle if not supported
+    if (!Capabilities.camera && elements.cameraToggle) {
+        elements.cameraToggle.disabled = true;
+        elements.cameraToggle.title = 'Camera not supported on this browser';
+    }
+    
+    // Disable microphone toggle if not supported
+    if (!Capabilities.microphone && elements.micToggle) {
+        elements.micToggle.disabled = true;
+        elements.micToggle.title = 'Microphone not supported on this browser';
+    }
+    
+    // Disable screen toggle if not supported
+    if (!Capabilities.screenSharing && elements.screenToggle) {
+        elements.screenToggle.disabled = true;
+        elements.screenToggle.title = 'Screen sharing not supported on this browser';
     }
     
     // Expose functions for onclick handlers
