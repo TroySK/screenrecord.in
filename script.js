@@ -49,6 +49,87 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 5000);
 }
 
+// Input sanitization
+function sanitizeHTML(str) {
+    if (typeof str !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function sanitizeTitle(title) {
+    // Remove any HTML tags and limit length
+    const sanitized = sanitizeHTML(title);
+    return sanitized.length > 100 ? sanitized.substring(0, 100) + '...' : sanitized;
+}
+
+// DOM element factory to prevent HTML injection
+function createElement(tag, attributes = {}, children = []) {
+    const element = document.createElement(tag);
+    
+    Object.entries(attributes).forEach(([key, value]) => {
+        if (key === 'className') {
+            element.className = value;
+        } else if (key === 'dataset') {
+            Object.entries(value).forEach(([dataKey, dataValue]) => {
+                element.dataset[dataKey] = dataValue;
+            });
+        } else if (key.startsWith('on') && typeof value === 'function') {
+            const eventName = key.substring(2).toLowerCase();
+            element.addEventListener(eventName, value);
+        } else if (key === 'style' && typeof value === 'object') {
+            Object.assign(element.style, value);
+        } else if (key === 'textContent') {
+            element.textContent = value;
+        } else if (key === 'innerHTML') {
+            element.innerHTML = value;
+        } else {
+            element.setAttribute(key, value);
+        }
+    });
+    
+    children.forEach(child => {
+        if (typeof child === 'string') {
+            element.appendChild(document.createTextNode(child));
+        } else if (child instanceof Node) {
+            element.appendChild(child);
+        }
+    });
+    
+    return element;
+}
+
+// Centralized error handler
+const ErrorHandler = {
+    log: (error, context = 'Unknown') => {
+        // Client-side only logging, privacy-respecting
+        console.error(`[Error] ${context}:`, error.message || error);
+        // Could add to a local error log array for debugging
+    },
+    
+    handle: (error, userMessage = 'An error occurred') => {
+        ErrorHandler.log(error, 'User Action');
+        showToast(userMessage, 'error');
+    },
+    
+    handlePermissionDenied: (feature) => {
+        const messages = {
+            'screen': 'Screen sharing was denied. Please allow access and try again.',
+            'camera': 'Camera access was denied. Please allow access in browser settings.',
+            'microphone': 'Microphone access was denied. Please allow access in browser settings.'
+        };
+        showToast(messages[feature] || `${feature} access denied`, 'error');
+    },
+    
+    handleStorageFull: () => {
+        showToast('Storage is full. Please delete some recordings or download and clear.', 'error');
+    },
+    
+    handleSaveFailed: () => {
+        showToast('Save failed. Downloading recording instead.', 'error');
+    }
+};
+
 // IndexedDB setup
 const DB_NAME = 'ScreenRecordDB';
 const DB_VERSION = 1;
@@ -200,7 +281,7 @@ async function saveVideo() {
     const maxSize = 500 * 1024 * 1024; // 500MB limit
 
     if (size > maxSize) {
-        showToast('Video too large (>500MB). Download without saving.', 'error');
+        ErrorHandler.handleStorageFull();
         downloadVideo(videoBlob, 'recording.webm');
         return;
     }
@@ -222,7 +303,7 @@ async function saveVideo() {
             setTimeout(reject, 5000); // Timeout for safety
         });
     } catch (err) {
-        console.warn('Duration fetch failed:', err);
+        ErrorHandler.log(err, 'Duration fetch');
         duration = 0;
     }
     URL.revokeObjectURL(tempVideo.src);
@@ -240,12 +321,12 @@ async function saveVideo() {
 
     try {
         await addVideo(videoObj);
+        clearDraft(); // Clear draft after successful save
         populateSavedList();
         await checkQuota();
-        showToast('Recording saved!');
+        showToast('Recording saved!', 'success');
     } catch (err) {
-        console.error('IndexedDB save failed:', err);
-        showToast('Save failed. Downloading instead.', 'error');
+        ErrorHandler.handleSaveFailed();
         downloadVideo(videoBlob, 'recording.webm');
     }
 }
@@ -357,7 +438,11 @@ async function getStream() {
 
             streams.push(screenStream);
         } catch (err) {
-            showToast(`Screen share denied: ${err.message}`, 'error');
+            if (err.name === 'NotAllowedError') {
+                ErrorHandler.handlePermissionDenied('screen');
+            } else {
+                ErrorHandler.handle(err, `Screen share failed: ${err.message}`);
+            }
             return null;
         }
     }
@@ -367,7 +452,11 @@ async function getStream() {
             cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
             streams.push(cameraStream);
         } catch (err) {
-            showToast(`Camera access denied: ${err.message}`, 'error');
+            if (err.name === 'NotAllowedError') {
+                ErrorHandler.handlePermissionDenied('camera');
+            } else {
+                ErrorHandler.handle(err, `Camera access failed: ${err.message}`);
+            }
             return null;
         }
     }
@@ -377,7 +466,11 @@ async function getStream() {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
             if (streams.length === 0) streams.push(new MediaStream()); // Empty video if only audio
         } catch (err) {
-            showToast(`Microphone access denied: ${err.message}`, 'error');
+            if (err.name === 'NotAllowedError') {
+                ErrorHandler.handlePermissionDenied('microphone');
+            } else {
+                ErrorHandler.handle(err, `Microphone access failed: ${err.message}`);
+            }
             return null;
         }
     }
@@ -425,7 +518,7 @@ async function startRecording() {
     try {
         mediaStream = await getStream();
         if (!mediaStream) {
-            showToast('No valid inputs selected or permissions granted.', 'error');
+            ErrorHandler.handle(null, 'No valid inputs selected or permissions granted.');
             return;
         }
 
@@ -468,7 +561,7 @@ async function startRecording() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (!ctx) {
-                showToast('Canvas not supported', 'error');
+                ErrorHandler.handle(null, 'Canvas not supported');
                 previewVideo.srcObject = mediaStream;
                 previewArea.classList.remove('hidden');
                 stopBtn.style.display = 'block';
@@ -480,7 +573,7 @@ async function startRecording() {
                 };
                 mediaRecorder.onstop = stopRecording;
                 mediaRecorder.onerror = (e) => {
-                    showToast(`Recording error: ${e.error}`, 'error');
+                    ErrorHandler.handle(e.error, `Recording error: ${e.error}`);
                     stopRecording();
                 };
                 mediaRecorder.start();
@@ -562,19 +655,27 @@ async function startRecording() {
         mediaRecorder.onstop = stopRecording;
 
         mediaRecorder.onerror = (e) => {
-            showToast(`Recording error: ${e.error}`, 'error');
+            ErrorHandler.handle(e.error, `Recording error: ${e.error}`);
             stopRecording();
         };
 
         mediaRecorder.start();
         isRecording = true;
+        // Auto-save draft every 30 seconds during recording
+        const draftInterval = setInterval(() => {
+            if (isRecording) {
+                saveDraft();
+            } else {
+                clearInterval(draftInterval);
+            }
+        }, 30000);
         showToast('Recording started... Keep this tab active for continuous recording.');
         // Show Picture-in-Picture info if camera is enabled
         if (config.camera && document.pictureInPictureEnabled) {
             pipInfo.classList.remove('hidden');
         }
     } catch (err) {
-        showToast(`Failed to start: ${err.message}`, 'error');
+        ErrorHandler.handle(err, `Failed to start: ${err.message}`);
     }
 }
 
@@ -588,7 +689,7 @@ document.addEventListener('visibilitychange', () => {
                 cameraVideo.requestPictureInPicture().then(() => {
                     showToast('Camera entered Picture-in-Picture mode to maintain recording.', 'info');
                 }).catch(err => {
-                    console.warn('Picture-in-Picture failed:', err);
+                    ErrorHandler.log(err, 'Picture-in-Picture');
                     // Fallback to popup
                     setTimeout(() => openRecordingPopup(), 100);
                 });
@@ -599,14 +700,14 @@ document.addEventListener('visibilitychange', () => {
         } else {
             // Resume videos on tab focus
             if (screenVideo && screenVideo.paused) {
-                screenVideo.play().catch(console.error);
+                screenVideo.play().catch(err => ErrorHandler.log(err, 'screenVideo resume'));
             }
             if (cameraVideo && cameraVideo.paused) {
-                cameraVideo.play().catch(console.error);
+                cameraVideo.play().catch(err => ErrorHandler.log(err, 'cameraVideo resume'));
             }
             // Exit Picture-in-Picture if active
             if (document.pictureInPictureElement) {
-                document.exitPictureInPicture().catch(console.error);
+                document.exitPictureInPicture().catch(err => ErrorHandler.log(err, 'exitPiP'));
             }
         }
     }
@@ -651,25 +752,12 @@ enablePipBtn.addEventListener('click', () => {
             showToast('Camera entered Picture-in-Picture mode!', 'success');
             pipInfo.classList.add('hidden');
         }).catch(err => {
-            console.error('Picture-in-Picture failed:', err);
-            showToast('Picture-in-Picture not supported or blocked.', 'error');
+            ErrorHandler.handle(err, 'Picture-in-Picture not supported or blocked.');
         });
     }
 });
 
-clearAll.addEventListener('click', async () => {
-    if (confirm('Delete all recordings?')) {
-        try {
-            await clearAllVideos();
-            populateSavedList();
-            await checkQuota();
-            showToast('All recordings cleared.');
-        } catch (err) {
-            console.error('Failed to clear videos:', err);
-            showToast('Failed to clear recordings.', 'error');
-        }
-    }
-});
+clearAll.addEventListener('click', secureDeleteAll);
 
 closeModal.addEventListener('click', () => modal.classList.add('hidden'));
 
@@ -679,12 +767,12 @@ downloadLast.addEventListener('click', async () => {
         if (videos.length) {
             const last = videos[0];
             if (last.videoBlob) {
-                downloadVideo(last.videoBlob, `${last.title}.webm`);
+                const safeTitle = sanitizeTitle(last.title).replace(/[^a-z0-9]/gi, '_');
+                downloadVideo(last.videoBlob, `${safeTitle}.webm`);
             }
         }
     } catch (err) {
-        console.error('Failed to download last video:', err);
-        showToast('No recordings available.', 'error');
+        ErrorHandler.handle(err, 'No recordings available.');
     }
 });
 
@@ -695,30 +783,141 @@ function updateToggles(disabled = true) {
 // Saved list functions
 function populateSavedList() {
     getAllVideos().then(videos => {
-        savedList.innerHTML = videos.length ? '' : '<p class="empty-state">No recordings yet. Start your first one!</p>';
+        savedList.innerHTML = '';
+        
+        if (videos.length === 0) {
+            const emptyMsg = createElement('p', { className: 'empty-state', textContent: 'No recordings yet. Start your first one!' });
+            savedList.appendChild(emptyMsg);
+            return;
+        }
+        
         videos.forEach(video => {
-            const card = document.createElement('div');
-            card.className = 'saved-card';
-            card.innerHTML = `
-                <img src="${video.thumbnail}" alt="Thumbnail">
-                <div class="saved-card-info">
-                    <h3>${video.title}</h3>
-                    <p>${new Date(video.date).toLocaleString()} | ${(video.duration || 0).toFixed(1)}s</p>
-                    <p>Config: ${Object.keys(video.config).filter(k => video.config[k]).map(k => k.replace(/([A-Z])/g, ' $1').trim()).join(', ')}</p>
-                    <p>Size: ${((video.size || 0) / 1024 / 1024).toFixed(1)} MB</p>
-                </div>
-                <div class="saved-card-actions">
-                    <button class="play-btn" onclick="playVideo('${video.id}')">Play</button>
-                    <button class="download-btn" onclick="downloadSaved('${video.id}')">Download</button>
-                    <button class="delete-btn" onclick="deleteVideo('${video.id}')">Delete</button>
-                </div>
-            `;
+            const card = createElement('div', { className: 'saved-card' });
+            
+            // Thumbnail image (safe - data URL)
+            const thumbnail = createElement('img', {
+                src: video.thumbnail,
+                alt: 'Thumbnail'
+            });
+            
+            const info = createElement('div', { className: 'saved-card-info' });
+            
+            // Title - sanitized with textContent
+            const title = createElement('h3', {
+                textContent: sanitizeTitle(video.title)
+            });
+            
+            // Date and duration
+            const dateStr = new Date(video.date).toLocaleString();
+            const durationStr = `${(video.duration || 0).toFixed(1)}s`;
+            const meta1 = createElement('p', { textContent: `${dateStr} | ${durationStr}` });
+            
+            // Config
+            const configStr = Object.keys(video.config)
+                .filter(k => video.config[k])
+                .map(k => k.replace(/([A-Z])/g, ' $1').trim())
+                .join(', ');
+            const meta2 = createElement('p', { textContent: `Config: ${configStr}` });
+            
+            // Size
+            const sizeStr = `${((video.size || 0) / 1024 / 1024).toFixed(1)} MB`;
+            const meta3 = createElement('p', { textContent: `Size: ${sizeStr}` });
+            
+            info.appendChild(title);
+            info.appendChild(meta1);
+            info.appendChild(meta2);
+            info.appendChild(meta3);
+            
+            const actions = createElement('div', { className: 'saved-card-actions' });
+            
+            const playBtn = createElement('button', {
+                className: 'play-btn',
+                textContent: 'Play',
+                onclick: () => playVideo(video.id)
+            });
+            
+            const downloadBtn = createElement('button', {
+                className: 'download-btn',
+                textContent: 'Download',
+                onclick: () => downloadSaved(video.id)
+            });
+            
+            const deleteBtn = createElement('button', {
+                className: 'delete-btn',
+                textContent: 'Delete',
+                onclick: () => deleteVideo(video.id)
+            });
+            
+            actions.appendChild(playBtn);
+            actions.appendChild(downloadBtn);
+            actions.appendChild(deleteBtn);
+            
+            card.appendChild(thumbnail);
+            card.appendChild(info);
+            card.appendChild(actions);
+            
             savedList.appendChild(card);
         });
     }).catch(err => {
-        console.error('Failed to load videos:', err);
-        savedList.innerHTML = '<p class="empty-state">Error loading recordings.</p>';
+        ErrorHandler.log(err, 'populateSavedList');
+        savedList.innerHTML = '';
+        const errorMsg = createElement('p', { className: 'empty-state', textContent: 'Error loading recordings.' });
+        savedList.appendChild(errorMsg);
     });
+}
+
+// Draft saving for crash recovery
+let currentDraft = null;
+
+function saveDraft() {
+    if (recordedChunks.length > 0) {
+        currentDraft = {
+            chunks: recordedChunks.slice(),
+            config: { ...config },
+            timestamp: Date.now()
+        };
+        // Store in sessionStorage for crash recovery
+        try {
+            sessionStorage.setItem('screenrecord_draft', JSON.stringify(currentDraft));
+        } catch (e) {
+            ErrorHandler.log(e, 'sessionStorage');
+        }
+    }
+}
+
+function clearDraft() {
+    currentDraft = null;
+    try {
+        sessionStorage.removeItem('screenrecord_draft');
+    } catch (e) {
+        // Ignore
+    }
+}
+
+async function recoverDraft() {
+    try {
+        const draftData = sessionStorage.getItem('screenrecord_draft');
+        if (draftData) {
+            const draft = JSON.parse(draftData);
+            // Check if draft is less than 24 hours old
+            if (Date.now() - draft.timestamp < 24 * 60 * 60 * 1000) {
+                if (confirm('Found a previous recording session that wasn\'t saved. Would you like to recover it?')) {
+                    recordedChunks = draft.chunks;
+                    config = draft.config;
+                    await saveVideo();
+                    clearDraft();
+                    showToast('Draft recovered successfully!', 'success');
+                } else {
+                    clearDraft();
+                }
+            } else {
+                clearDraft(); // Draft too old
+            }
+        }
+    } catch (err) {
+        ErrorHandler.log(err, 'recoverDraft');
+        clearDraft();
+    }
 }
 
 async function playVideo(id) {
@@ -729,8 +928,7 @@ async function playVideo(id) {
             modal.classList.remove('hidden');
         }
     } catch (err) {
-        console.error('Failed to play video:', err);
-        showToast('Failed to play video.', 'error');
+        ErrorHandler.handle(err, 'Failed to play video.');
     }
 }
 
@@ -738,25 +936,46 @@ async function downloadSaved(id) {
     try {
         const video = await getVideo(id);
         if (video && video.videoBlob) {
-            downloadVideo(video.videoBlob, `${video.title}.webm`);
+            // Sanitize filename
+            const safeTitle = sanitizeTitle(video.title).replace(/[^a-z0-9]/gi, '_');
+            downloadVideo(video.videoBlob, `${safeTitle}.webm`);
         }
     } catch (err) {
-        console.error('Failed to download video:', err);
-        showToast('Failed to download video.', 'error');
+        ErrorHandler.handle(err, 'Failed to download video.');
     }
 }
 
 async function deleteVideo(id) {
-    if (confirm('Delete this recording?')) {
+    const video = await getVideo(id);
+    const videoTitle = sanitizeTitle(video?.title || 'this recording');
+    
+    if (confirm(`Delete "${videoTitle}"? This cannot be undone.`)) {
         try {
             await deleteVideoFromDB(id);
             populateSavedList();
             checkQuota();
             showToast('Recording deleted.');
         } catch (err) {
-            console.error('Failed to delete video:', err);
-            showToast('Failed to delete recording.', 'error');
+            ErrorHandler.handle(err, 'Failed to delete recording.');
         }
+    }
+}
+
+// Secure delete with typing confirmation
+async function secureDeleteAll() {
+    const confirmationInput = prompt('Type "DELETE" to confirm deletion of ALL recordings:');
+    if (confirmationInput !== 'DELETE') {
+        showToast('Deletion cancelled. You must type "DELETE" to confirm.', 'info');
+        return;
+    }
+    
+    try {
+        await clearAllVideos();
+        populateSavedList();
+        await checkQuota();
+        showToast('All recordings have been permanently deleted.', 'success');
+    } catch (err) {
+        ErrorHandler.handle(err, 'Failed to clear recordings.');
     }
 }
 
@@ -776,6 +995,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.playVideo = playVideo;
     window.downloadSaved = downloadSaved;
     window.deleteVideo = deleteVideo;
+    // Try to recover any draft from previous session
+    await recoverDraft();
+});
+
+// Save draft before page unload
+window.addEventListener('beforeunload', () => {
+    saveDraft();
 });
 
 // Error handling for unsupported features
