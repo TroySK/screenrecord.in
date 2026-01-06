@@ -3,7 +3,7 @@
 // ============================================
 
 import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG, Capabilities, initCapabilitiesUI } from './utils.js';
-import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo, getVideosPaginated, getVideosCount } from './storage.js';
+import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo, getVideosPaginated, getVideosCount, getCleanupSuggestions } from './storage.js';
 import { startRecording, stopRecording, RecordingState } from './recording.js';
 import { Validator, RecordingConfigValidator, StorageValidator, ValidationMessages } from './validation.js';
 
@@ -35,6 +35,10 @@ export const elements = {
     closeModal: null,
     closeSidebar: null,
     storageInfo: null,
+    storageProgressBar: null,
+    storageWarning: null,
+    cleanupStorage: null,
+    cleanupSuggestions: null,
     errorNotifications: null,
     downloadLast: null
 };
@@ -88,6 +92,10 @@ export function initElements() {
     elements.closeModal = document.querySelector('.close');
     elements.closeSidebar = document.getElementById('close-sidebar');
     elements.storageInfo = document.getElementById('storage-info');
+    elements.storageProgressBar = document.getElementById('storage-progress-bar');
+    elements.storageWarning = document.getElementById('storage-warning');
+    elements.cleanupStorage = document.getElementById('cleanup-storage');
+    elements.cleanupSuggestions = document.getElementById('cleanup-suggestions');
     elements.errorNotifications = document.getElementById('error-notifications');
     elements.downloadLast = document.getElementById('download-last');
 }
@@ -202,6 +210,107 @@ export async function updateStorageInfo() {
         } else {
             elements.storageInfo.textContent = `${info.usedMB} MB`;
         }
+        
+        // Update progress bar
+        if (elements.storageProgressBar && info.percentFull) {
+            const percent = Math.min(parseFloat(info.percentFull), 100);
+            elements.storageProgressBar.style.width = `${percent}%`;
+            
+            // Remove existing status classes
+            elements.storageProgressBar.classList.remove('warning', 'danger');
+            
+            // Add appropriate status class
+            if (info.status === 'danger') {
+                elements.storageProgressBar.classList.add('danger');
+            } else if (info.status === 'warning') {
+                elements.storageProgressBar.classList.add('warning');
+            }
+        }
+        
+        // Update warning message
+        if (elements.storageWarning) {
+            elements.storageWarning.classList.remove('hidden', 'warning', 'danger');
+            
+            if (info.status === 'danger') {
+                elements.storageWarning.classList.remove('hidden');
+                elements.storageWarning.classList.add('danger');
+                elements.storageWarning.textContent = '⚠️ Storage almost full! Delete old recordings to continue recording.';
+            } else if (info.status === 'warning') {
+                elements.storageWarning.classList.remove('hidden');
+                elements.storageWarning.classList.add('warning');
+                elements.storageWarning.textContent = '⚠️ Storage getting low. Consider deleting old recordings.';
+            }
+        }
+    }
+}
+
+/**
+ * Render cleanup suggestions in the UI
+ */
+export async function renderCleanupSuggestions() {
+    if (!elements.cleanupSuggestions) return;
+    
+    const suggestions = await getCleanupSuggestions();
+    
+    if (!suggestions.hasSuggestions) {
+        // Show message in the suggestions panel instead of toast
+        elements.cleanupSuggestions.classList.remove('hidden');
+        elements.cleanupSuggestions.innerHTML = `
+            <h4>Cleanup Suggestions</h4>
+            <p>${suggestions.message || 'No cleanup suggestions available.'}</p>
+        `;
+        return;
+    }
+    
+    elements.cleanupSuggestions.classList.remove('hidden');
+    
+    let html = `<h4>Cleanup Suggestions (${suggestions.recordings.length} recordings)</h4>`;
+    html += `<p>Total: ${suggestions.totalSizeMB} MB across ${suggestions.totalRecordings} recordings</p>`;
+    html += '<ul>';
+    
+    for (const recording of suggestions.recordings) {
+        const dateStr = formatDate(recording.date);
+        html += `
+            <li>
+                <div class="recording-info">
+                    <span class="recording-title">${sanitizeTitle(recording.title)}</span>
+                    <span class="recording-size">${dateStr} | ${recording.sizeMB} MB</span>
+                </div>
+                <button class="delete-recording-btn" data-id="${recording.id}">Delete</button>
+            </li>
+        `;
+    }
+    
+    html += '</ul>';
+    elements.cleanupSuggestions.innerHTML = html;
+    
+    // Add event listeners to delete buttons
+    elements.cleanupSuggestions.querySelectorAll('.delete-recording-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            const result = await deleteVideo(id, showToast);
+            if (result) {
+                await updateStorageInfo();
+                await renderCleanupSuggestions();
+                await populateSavedList();
+            }
+        });
+    });
+}
+
+/**
+ * Toggle cleanup suggestions visibility
+ */
+export function toggleCleanupSuggestions() {
+    if (!elements.cleanupSuggestions) return;
+    
+    const isHidden = elements.cleanupSuggestions.classList.contains('hidden');
+    
+    if (isHidden) {
+        elements.cleanupSuggestions.classList.remove('hidden');
+        renderCleanupSuggestions();
+    } else {
+        elements.cleanupSuggestions.classList.add('hidden');
     }
 }
 
@@ -546,6 +655,11 @@ export function setupEventListeners() {
     // Load more button
     elements.loadMoreBtn?.addEventListener('click', () => {
         loadMoreRecordings();
+    });
+    
+    // Cleanup storage button
+    elements.cleanupStorage?.addEventListener('click', () => {
+        toggleCleanupSuggestions();
     });
     
     // Close modal

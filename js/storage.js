@@ -2,7 +2,7 @@
 // INDEXEDDB STORAGE MODULE
 // ============================================
 
-import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG, StorageRetry } from './utils.js';
+import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG, StorageRetry, estimateStorageUsage } from './utils.js';
 import { StorageValidator, Validator } from './validation.js';
 
 // Database configuration - use CONFIG values
@@ -344,11 +344,86 @@ export async function getStorageInfo(showToast = null) {
                 quota,
                 usedMB: (used / 1024 / 1024).toFixed(2),
                 quotaMB: (quota / 1024 / 1024).toFixed(0),
-                percentFull: ((used / quota) * 100).toFixed(1)
+                percentFull: ((used / quota) * 100).toFixed(1),
+                status: used > quota * 0.9 ? 'danger' : used > quota * 0.7 ? 'warning' : 'normal'
             };
         }
-        return { usedMB: (used / 1024 / 1024).toFixed(2) };
+        return { usedMB: (used / 1024 / 1024).toFixed(2), status: 'normal' };
     } catch (err) {
-        return { error: true };
+        return { error: true, status: 'normal' };
+    }
+}
+
+/**
+ * Get all recordings with their sizes for cleanup suggestions
+ * @returns {Promise<Array>} - Array of video objects with size info
+ */
+export async function getRecordingsWithSizes() {
+    try {
+        const videos = await getAllVideos();
+        return videos.map(video => ({
+            id: video.id,
+            title: video.title,
+            date: video.date,
+            duration: video.duration,
+            size: video.size,
+            sizeMB: (video.size / 1024 / 1024).toFixed(2)
+        })).sort((a, b) => b.size - a.size); // Sort by size descending
+    } catch (err) {
+        console.error('Error getting recordings with sizes:', err);
+        return [];
+    }
+}
+
+/**
+ * Get cleanup suggestions based on storage usage
+ * @returns {Promise<Object>} - Cleanup suggestions object
+ */
+export async function getCleanupSuggestions() {
+    try {
+        const storageInfo = await getStorageInfo();
+        const recordings = await getRecordingsWithSizes();
+        
+        if (recordings.length === 0) {
+            return { hasSuggestions: false, message: 'No recordings to clean up.' };
+        }
+        
+        const suggestions = [];
+        const totalSize = recordings.reduce((sum, r) => sum + r.size, 0);
+        
+        // Suggest deleting largest recordings if storage is full
+        if (storageInfo.percentFull && parseFloat(storageInfo.percentFull) > 80) {
+            const spaceNeeded = totalSize * 0.3; // Free up 30%
+            let freedSpace = 0;
+            
+            for (const recording of recordings) {
+                if (freedSpace >= spaceNeeded) break;
+                suggestions.push(recording);
+                freedSpace += recording.size;
+            }
+        }
+        
+        // Suggest deleting old recordings
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const oldRecordings = recordings.filter(r => new Date(r.date).getTime() < thirtyDaysAgo);
+        
+        // Merge old recordings with size-based suggestions
+        const suggestionIds = new Set(suggestions.map(s => s.id));
+        for (const recording of oldRecordings) {
+            if (!suggestionIds.has(recording.id)) {
+                suggestions.push(recording);
+            }
+        }
+        
+        return {
+            hasSuggestions: suggestions.length > 0,
+            recordings: suggestions,
+            totalRecordings: recordings.length,
+            totalSizeMB: (totalSize / 1024 / 1024).toFixed(2),
+            storageStatus: storageInfo.status
+        };
+    } catch (err) {
+        console.error('Error getting cleanup suggestions:', err);
+        return { hasSuggestions: false, message: 'Unable to analyze storage.' };
     }
 }

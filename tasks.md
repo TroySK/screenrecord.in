@@ -105,7 +105,7 @@
   - Show total count separately
   - Prevent browser crashes with large libraries
 
-- [ ] **Add storage usage visualization**
+- [x] **Add storage usage visualization**
   - Progress bar showing used/available space
   - Color-coded warnings (green → yellow → red)
   - Per-recording size display with cleanup suggestions
