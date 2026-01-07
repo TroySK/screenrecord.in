@@ -102,6 +102,10 @@ export const Capabilities = {
         return !!document.pictureInPictureEnabled;
     },
     
+    get popupWindow() {
+        return !!window.open;
+    },
+    
     get mediaRecorder() {
         return !!window.MediaRecorder;
     },
@@ -120,6 +124,91 @@ export const Capabilities = {
 };
 
 // ============================================
+// POPUP FALLBACK FOR UNSUPPORTED BROWSERS
+// ============================================
+
+export function openRecordingPopup() {
+    const width = 400;
+    const height = 300;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const features = `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`;
+    
+    const popup = window.open('', 'RecordingKeepAlive', features);
+    
+    if (!popup) {
+        return null;
+    }
+    
+    // Write content to the popup
+    popup.document.write(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Recording Active</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                    text-align: center;
+                }
+                .recording-indicator {
+                    width: 20px;
+                    height: 20px;
+                    background: #ff4444;
+                    border-radius: 50%;
+                    animation: pulse 1.5s infinite;
+                    margin-bottom: 20px;
+                }
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.5; transform: scale(1.2); }
+                }
+                h1 { margin: 0 0 10px 0; font-size: 24px; }
+                p { margin: 0 0 20px 0; opacity: 0.9; }
+                .timer { font-size: 32px; font-weight: bold; font-family: monospace; }
+            </style>
+        </head>
+        <body>
+            <div class="recording-indicator"></div>
+            <h1>Recording Active</h1>
+            <p>Keep this window open to maintain continuous recording.</p>
+            <div class="timer" id="timer">00:00</div>
+            <script>
+                let seconds = 0;
+                setInterval(() => {
+                    seconds++;
+                    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                    const secs = (seconds % 60).toString().padStart(2, '0');
+                    document.getElementById('timer').textContent = mins + ':' + secs;
+                }, 1000);
+                
+                // Notify parent window this popup is ready
+                window.opener.postMessage({ type: 'popup-ready' }, '*');
+            </script>
+        </body>
+        </html>
+    `);
+    
+    popup.document.close();
+    
+    // Store popup reference
+    window.recordingPopup = popup;
+    
+    return popup;
+}
+
+// ============================================
 // UI FEATURE ADAPTATION
 // ============================================
 
@@ -132,12 +221,24 @@ export function adaptUIForCapabilities() {
         if (screenInfo) screenInfo.textContent = CONFIG.SCREEN_SHARING_UNSUPPORTED_MESSAGE || 'Screen sharing not supported on this device';
     }
     
-    // Hide PiP if not supported
+    // Show/hide PiP and popup fallback buttons based on capabilities
+    const pipInfo = document.getElementById('pip-info');
+    const enablePipBtn = document.getElementById('enable-pip');
+    const enablePopupBtn = document.getElementById('enable-popup');
+    
     if (!Capabilities.pictureInPicture) {
-        const pipInfo = document.getElementById('pip-info');
-        const enablePipBtn = document.getElementById('enable-pip');
-        if (pipInfo) pipInfo.style.display = 'none';
+        // PiP not supported - hide PiP button, show popup fallback
         if (enablePipBtn) enablePipBtn.style.display = 'none';
+        if (pipInfo) pipInfo.classList.remove('hidden');
+        if (enablePopupBtn) enablePopupBtn.style.display = 'inline-block';
+    } else {
+        // PiP supported - show both options
+        if (enablePopupBtn) enablePopupBtn.style.display = 'inline-block';
+    }
+    
+    // Hide popup button if popups are blocked
+    if (!Capabilities.popupWindow) {
+        if (enablePopupBtn) enablePopupBtn.style.display = 'none';
     }
 }
 

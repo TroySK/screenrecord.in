@@ -197,6 +197,17 @@ header button:hover {
     border-color: #d39e00;
 }
 
+.pip-btn-secondary {
+    background: #6c757d;
+    color: white;
+    border-color: #6c757d;
+}
+
+.pip-btn-secondary:hover {
+    background: #5a6268;
+    border-color: #545b62;
+}
+
 #recording-controls-overlay {
     position: absolute;
     top: 10px;

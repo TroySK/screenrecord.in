@@ -659,18 +659,39 @@ export function setupEventListeners() {
     });
     
     // PiP button
-    elements.enablePipBtn?.addEventListener('click', () => {
+    elements.enablePipBtn?.addEventListener('click', async () => {
         if (RecordingState.cameraVideo && !document.pictureInPictureElement) {
-            RecordingState.cameraVideo.requestPictureInPicture()
-                .then(() => {
-                    showToast('Camera entered Picture-in-Picture mode!', 'success');
-                    elements.pipInfo?.classList.add('hidden');
-                })
-                .catch(err => {
-                    console.error('PiP error:', err);
-                });
+            try {
+                await RecordingState.cameraVideo.requestPictureInPicture();
+                showToast('Camera entered Picture-in-Picture mode!', 'success');
+                elements.pipInfo?.classList.add('hidden');
+            } catch (err) {
+                console.error('PiP error:', err);
+                // Fallback to popup if PiP fails
+                openPopupFallback();
+            }
         }
     });
+    
+    // Popup fallback button (for browsers without PiP support)
+    elements.enablePopupBtn?.addEventListener('click', () => {
+        openPopupFallback();
+    });
+    
+    /**
+     * Open popup window as PiP fallback for unsupported browsers
+     */
+    async function openPopupFallback() {
+        const { openRecordingPopup } = await import('./main.js');
+        const popup = openRecordingPopup();
+        
+        if (popup) {
+            showToast('Popup opened! Keep it visible to maintain recording.', 'success');
+            elements.pipInfo?.classList.add('hidden');
+        } else {
+            showToast('Popup blocked! Please allow popups for this site.', 'error');
+        }
+    }
     
     // Clear all
     elements.clearAll?.addEventListener('click', async () => {
