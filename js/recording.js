@@ -28,6 +28,9 @@ export const RecordingState = {
     _audioContext: null,
     _currentVideoId: null,
     _draftInterval: null,
+    _recordingStartTime: null,
+    _timerAnimationId: null,
+    _originalTitle: document.title,
     
     // Getters/Setters
     get isRecording() { return this._isRecording; },
@@ -83,6 +86,12 @@ export const RecordingState = {
     get draftInterval() { return this._draftInterval; },
     set draftInterval(interval) { this._draftInterval = interval; },
     
+    get recordingStartTime() { return this._recordingStartTime; },
+    set recordingStartTime(time) { this._recordingStartTime = time; },
+    
+    get timerAnimationId() { return this._timerAnimationId; },
+    set timerAnimationId(id) { this._timerAnimationId = id; },
+    
     reset() {
         this._recordedChunks = [];
         this._mediaRecorder = null;
@@ -98,6 +107,16 @@ export const RecordingState = {
         this._isRecording = false;
         this._audioContext = null;
         this._currentVideoId = null;
+        this._recordingStartTime = null;
+        
+        // Stop timer animation
+        if (this._timerAnimationId) {
+            cancelAnimationFrame(this._timerAnimationId);
+            this._timerAnimationId = null;
+        }
+        
+        // Restore original title
+        document.title = this._originalTitle;
         
         if (this._draftInterval) {
             clearInterval(this._draftInterval);
@@ -105,6 +124,84 @@ export const RecordingState = {
         }
     }
 };
+
+// ============================================
+// RECORDING TIMER
+// ============================================
+
+// Timer configuration
+const TIMER_WARNING_THRESHOLD = 3600; // 60 minutes - start flashing warning
+const TIMER_FLASH_INTERVAL = 500; // Flash every 500ms when approaching max duration
+
+/**
+ * Format duration in MM:SS format
+ * @param {number} seconds - Duration in seconds
+ * @returns {string} Formatted duration string
+ */
+export function formatTimerDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Update the recording timer display and document title
+ * @param {Function} showToast - Optional toast notification function
+ */
+function updateRecordingTimer(showToast = null) {
+    if (!RecordingState.isRecording || !RecordingState.recordingStartTime) return;
+    
+    const elapsed = (Date.now() - RecordingState.recordingStartTime) / 1000;
+    const formattedTime = formatTimerDuration(elapsed);
+    
+    // Update document title with timer
+    document.title = `● ${formattedTime} - ScreenRecord.in`;
+    
+    // Update timer display in preview area if it exists
+    const timerElement = document.getElementById('recording-timer');
+    if (timerElement) {
+        timerElement.textContent = formattedTime;
+        
+        // Flash warning when approaching max duration (5 minutes)
+        if (elapsed >= TIMER_WARNING_THRESHOLD) {
+            const shouldShowWarning = Math.floor(Date.now() / TIMER_FLASH_INTERVAL) % 2 === 0;
+            timerElement.classList.toggle('timer-warning-flash', shouldShowWarning);
+        } else {
+            timerElement.classList.remove('timer-warning-flash');
+        }
+    }
+    
+    // Continue the animation loop
+    RecordingState.timerAnimationId = requestAnimationFrame(() => updateRecordingTimer(showToast));
+}
+
+/**
+ * Start the recording timer
+ * @param {Function} showToast - Optional toast notification function
+ */
+export function startRecordingTimer(showToast = null) {
+    RecordingState.recordingStartTime = Date.now();
+    RecordingState.timerAnimationId = requestAnimationFrame(() => updateRecordingTimer(showToast));
+}
+
+/**
+ * Stop the recording timer and restore document title
+ */
+export function stopRecordingTimer() {
+    if (RecordingState.timerAnimationId) {
+        cancelAnimationFrame(RecordingState.timerAnimationId);
+        RecordingState.timerAnimationId = null;
+    }
+    
+    // Restore original title
+    document.title = RecordingState._originalTitle;
+    
+    // Remove warning class from timer element
+    const timerElement = document.getElementById('recording-timer');
+    if (timerElement) {
+        timerElement.classList.remove('timer-warning-flash');
+    }
+}
 
 // ============================================
 // CLEANUP
@@ -454,6 +551,9 @@ async function startMediaRecorder(stream, config, showToast = null) {
     RecordingState.mediaRecorder.start();
     RecordingState.isRecording = true;
     
+    // Start recording timer
+    startRecordingTimer(showToast);
+    
     // Auto-save draft
     RecordingState.draftInterval = setInterval(() => {
         if (RecordingState.isRecording) {
@@ -474,6 +574,9 @@ export async function stopRecording(showToast = null) {
     const { elements, updateToggles, AppConfig } = ui;
     
     RecordingState.isRecording = false;
+    
+    // Stop recording timer
+    stopRecordingTimer();
     
     // Stop draft interval
     if (RecordingState.draftInterval) {
@@ -546,6 +649,13 @@ export async function stopRecording(showToast = null) {
     // Update UI
     if (elements.stopBtn) elements.stopBtn.style.display = 'none';
     if (elements.previewVideo) elements.previewVideo.srcObject = null;
+    
+    // Hide recording timer
+    const timerElement = document.getElementById('recording-timer');
+    if (timerElement) {
+        timerElement.style.display = 'none';
+        timerElement.textContent = '00:00';
+    }
     
     if (RecordingState.previewCanvas) {
         RecordingState.previewCanvas.remove();

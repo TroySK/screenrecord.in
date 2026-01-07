@@ -134,6 +134,37 @@ header button:hover {
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
+/* Recording Timer */
+.recording-timer {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    z-index: 10;
+    min-width: 80px;
+    text-align: center;
+}
+
+.recording-timer.timer-warning-flash {
+    background: rgba(244, 67, 54, 0.9);
+    animation: timerFlash 0.5s ease-in-out infinite;
+}
+
+@keyframes timerFlash {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
 .pip-info {
     background: #fff3cd;
     border: 1px solid #ffeaa7;

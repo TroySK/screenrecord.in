@@ -40,7 +40,8 @@ export const elements = {
     cleanupStorage: null,
     cleanupSuggestions: null,
     errorNotifications: null,
-    downloadLast: null
+    downloadLast: null,
+    recordingTimer: null
 };
 
 // ============================================
@@ -98,6 +99,7 @@ export function initElements() {
     elements.cleanupSuggestions = document.getElementById('cleanup-suggestions');
     elements.errorNotifications = document.getElementById('error-notifications');
     elements.downloadLast = document.getElementById('download-last');
+    elements.recordingTimer = document.getElementById('recording-timer');
 }
 
 // ============================================
@@ -590,6 +592,11 @@ export function setupEventListeners() {
                 elements.previewArea.insertBefore(RecordingState.previewCanvas, elements.previewVideo);
                 elements.previewVideo.style.display = 'none';
                 elements.previewArea.classList.remove('hidden');
+            }
+            
+            // Show recording timer
+            if (elements.recordingTimer) {
+                elements.recordingTimer.style.display = 'block';
             }
             
             // Show PiP info if camera enabled
