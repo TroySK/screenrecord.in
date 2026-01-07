@@ -1070,6 +1070,7 @@ function createVideoCard(video) {
     actions.appendChild(downloadBtn);
     actions.appendChild(deleteBtn);
     
+    // New layout: thumbnail first, then content, then actions
     card.appendChild(thumbnail);
     card.appendChild(content);
     card.appendChild(actions);
