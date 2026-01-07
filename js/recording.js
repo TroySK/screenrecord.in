@@ -159,6 +159,52 @@ export function formatTimerDuration(seconds) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
+// ============================================
+// WATERMARK DRAWING
+// ============================================
+
+/**
+ * Draw watermark logo on canvas
+ * @param {CanvasRenderingContext2D} ctx - Canvas 2D context
+ * @param {number} width - Canvas width
+ * @param {number} height - Canvas height
+ */
+function drawWatermark(ctx, width, height) {
+    const watermarkScale = 0.08; // Scale relative to canvas size
+    const padding = 30;
+    
+    // Calculate dimensions based on canvas size
+    const logoSize = Math.min(width, height) * watermarkScale;
+    const textSize = logoSize * 0.5;
+    
+    // Position: top-left corner
+    const x = padding + logoSize / 2;
+    const y = padding + textSize / 2 + textSize * 0.3;
+    
+    // Draw outer circle (ring)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = Math.max(1, logoSize * 0.04);
+    ctx.beginPath();
+    ctx.arc(x, y - textSize * 0.3, logoSize * 0.45, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Draw inner circle (filled)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.beginPath();
+    ctx.arc(x, y - textSize * 0.3, logoSize * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw text
+    ctx.font = `500 ${textSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ScreenRecord.in', x + logoSize * 0.6, y - 10);
+    
+    ctx.restore();
+}
+
 /**
  * Update the recording timer display and document title
  * @param {Function} showToast - Optional toast notification function
@@ -494,6 +540,9 @@ export async function startRecording(config, showToast = null) {
                     ctx.restore();
                 }
                 
+                // Draw watermark
+                drawWatermark(ctx, canvas.width, canvas.height);
+                
                 RecordingState.animationId = requestAnimationFrame(draw);
             };
             
@@ -549,6 +598,9 @@ export async function startRecording(config, showToast = null) {
                     if (RecordingState.cameraVideo.readyState >= 2) {
                         ctx.drawImage(RecordingState.cameraVideo, 0, 0, canvas.width, canvas.height);
                     }
+                    
+                    // Draw watermark
+                    drawWatermark(ctx, canvas.width, canvas.height);
                     
                     RecordingState.animationId = requestAnimationFrame(draw);
                 };
