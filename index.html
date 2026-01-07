@@ -5,154 +5,394 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ScreenRecord.in</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>ScreenRecord.in</h1>
-        <p>Record your screen, camera, and audio – all local, no backend.</p>
-        <button id="new-recording">New Recording</button>
-        <button id="toggle-sidebar">📁 Saved</button>
-        <button id="naming-pattern-settings" title="Naming Pattern Settings">⚙️</button>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header class="app-header">
+        <a href="#" class="app-logo">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="4" fill="currentColor"/>
+            </svg>
+            <span class="logo-text">ScreenRecord</span>
+        </a>
+        
+        <button class="app-menu-btn" id="menu-toggle" aria-label="Menu" title="Menu ⌘K">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2 4h12M2 8h12M2 12h12"/>
+            </svg>
+        </button>
     </header>
 
+    <!-- Command Menu -->
+    <div class="command-menu hidden" id="command-menu">
+        <div class="command-backdrop" id="command-backdrop"></div>
+        <div class="command-container">
+            <div class="command-input-wrapper">
+                <svg class="command-search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="7" cy="7" r="5"/>
+                    <path d="M10 10l4 4"/>
+                </svg>
+                <input type="text" class="command-input" id="command-input" placeholder="Type a command or search..." autocomplete="off">
+            </div>
+            
+            <div class="command-results" id="command-results">
+                <div class="command-group">
+                    <div class="command-group-label">Actions</div>
+                    <button class="command-item" data-action="new-recording">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="8" cy="8" r="6"/>
+                            <path d="M8 5v3M5 8h3"/>
+                        </svg>
+                        <span>New Recording</span>
+                        <span class="command-shortcut">⌘N</span>
+                    </button>
+                    <button class="command-item" data-action="saved-recordings">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M2 4a2 2 0 012-2h8a2 2 0 012 2v1l3 3 3-3v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7l3-3V4z"/>
+                        </svg>
+                        <span>Saved Recordings</span>
+                        <span class="command-shortcut">⌘S</span>
+                    </button>
+                    <button class="command-item" data-action="naming-pattern">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="8" cy="8" r="5"/>
+                            <path d="M8 5v1M5 8h6"/>
+                        </svg>
+                        <span>Naming Pattern</span>
+                    </button>
+                    <button class="command-item" data-action="shortcuts">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="2" y="3" width="12" height="10" rx="2"/>
+                            <path d="M5 6h2M5 9h2M9 6h2M9 9h2"/>
+                        </svg>
+                        <span>Keyboard Shortcuts</span>
+                        <span class="command-shortcut">⌘/</span>
+                    </button>
+                </div>
+                
+                <div class="command-group">
+                    <div class="command-group-label">Preferences</div>
+                    <button class="command-item" data-action="dark-mode">
+                        <svg class="icon-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="8" cy="8" r="3"/>
+                            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1 1M11.5 11.5l1 1M3.5 12.5l1-1M11.5 4.5l1-1"/>
+                        </svg>
+                        <svg class="icon-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 7a5 5 0 01-5 5 5 5 0 01-3-9"/>
+                        </svg>
+                        <span>Toggle Dark Mode</span>
+                        <span class="command-shortcut">⌘D</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="command-footer">
+                <span class="command-hint">↑↓ to navigate</span>
+                <span class="command-hint">↵ to select</span>
+                <span class="command-hint">esc to close</span>
+            </div>
+        </div>
+    </div>
+
     <main id="main-content">
-        <section id="recording-controls" class="panel">
-            <h2>Recording Controls</h2>
-            <div class="config-toggles">
-                <label><input type="checkbox" id="screen-toggle"> Screen Share</label>
-                <label><input type="checkbox" id="camera-toggle"> Camera</label>
-                <label><input type="checkbox" id="mic-toggle"> Microphone</label>
-                <label><input type="checkbox" id="system-audio-toggle"> System Audio</label>
+        <section class="recording-controls" id="recording-controls">
+            <div class="controls-header">
+                <h2 class="controls-title">Recording Configuration</h2>
+                <p class="controls-subtitle">Select what you want to capture</p>
             </div>
-            <div id="config-summary"></div>
-            <button id="start-recording" disabled>Start Recording</button>
+            
+            <div class="config-grid">
+                <label class="config-card" data-config="screen">
+                    <input type="checkbox" id="screen-toggle" class="config-input">
+                    <div class="config-icon">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="2" y="2" width="12" height="10" rx="1"/>
+                            <path d="M2 11h12"/>
+                        </svg>
+                    </div>
+                    <div class="config-content">
+                        <span class="config-title">Screen Share</span>
+                        <span class="config-desc">Record your screen</span>
+                    </div>
+                    <div class="config-check">
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="2 6 5 9 10 3"/>
+                        </svg>
+                    </div>
+                </label>
+
+                <label class="config-card" data-config="camera">
+                    <input type="checkbox" id="camera-toggle" class="config-input">
+                    <div class="config-icon">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M15 5l-4 4-4-4v8l4 4 4-4V5z"/>
+                            <rect x="1" y="3" width="10" height="8" rx="1"/>
+                        </svg>
+                    </div>
+                    <div class="config-content">
+                        <span class="config-title">Camera</span>
+                        <span class="config-desc">Include webcam</span>
+                    </div>
+                    <div class="config-check">
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="2 6 5 9 10 3"/>
+                        </svg>
+                    </div>
+                </label>
+
+                <label class="config-card" data-config="mic">
+                    <input type="checkbox" id="mic-toggle" class="config-input">
+                    <div class="config-icon">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M8 1a3 3 0 00-3 3v6a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+                            <path d="M12 10v4M8 13v2"/>
+                        </svg>
+                    </div>
+                    <div class="config-content">
+                        <span class="config-title">Microphone</span>
+                        <span class="config-desc">Record audio</span>
+                    </div>
+                    <div class="config-check">
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="2 6 5 9 10 3"/>
+                        </svg>
+                    </div>
+                </label>
+
+                <label class="config-card" data-config="system-audio">
+                    <input type="checkbox" id="system-audio-toggle" class="config-input">
+                    <div class="config-icon">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <polygon points="7 3 2 7 2 13 7 17 7 3"/>
+                            <path d="M12 8a4 4 0 010 8M12 4v8"/>
+                        </svg>
+                    </div>
+                    <div class="config-content">
+                        <span class="config-title">System Audio</span>
+                        <span class="config-desc">Capture sound</span>
+                    </div>
+                    <div class="config-check">
+                        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="2 6 5 9 10 3"/>
+                        </svg>
+                    </div>
+                </label>
+            </div>
+
+            <div class="config-summary" id="config-summary">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="8" cy="8" r="6"/>
+                    <path d="M8 5v3l2 1"/>
+                </svg>
+                <span>Select inputs to start recording</span>
+            </div>
+
+            <button id="start-recording" class="btn-record" disabled>
+                <svg viewBox="0 0 16 16" fill="currentColor">
+                    <circle cx="8" cy="8" r="6"/>
+                </svg>
+                <span>Start Recording</span>
+                <span class="btn-record-shortcut">⌘⇧R</span>
+            </button>
+
             <div id="pip-info" class="pip-info hidden">
-                <p>💡 <strong>Keep recording active:</strong> Modern browsers pause camera/screen recording when the tab is not focused. Enable Picture-in-Picture mode to maintain continuous recording.</p>
-                <button id="enable-pip" class="pip-btn">Enable Picture-in-Picture</button>
-                <button id="enable-popup" class="pip-btn pip-btn-secondary">Open Popup (Fallback)</button>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="8" cy="8" r="6"/>
+                    <path d="M8 5v6"/>
+                </svg>
+                <div class="pip-info-content">
+                    <p><strong>Keep recording active:</strong> Modern browsers pause recording when the tab is not focused. Enable Picture-in-Picture mode to maintain continuous recording.</p>
+                    <div class="pip-buttons">
+                        <button id="enable-pip" class="pip-btn pip-btn-primary">Enable PiP</button>
+                        <button id="enable-popup" class="pip-btn pip-btn-secondary">Open Popup</button>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <section id="preview-area" class="hidden">
-            <video id="preview-video" autoplay muted playsinline></video>
-            <div id="recording-timer" class="recording-timer">00:00</div>
-            <div id="paused-overlay" class="paused-overlay hidden">
-                <span class="paused-text">⏸ PAUSED</span>
-            </div>
-            <div id="recording-controls-overlay">
-                <button id="pause-recording" class="prominent" style="display: none;">⏸ Pause</button>
-                <button id="stop-recording" class="prominent" style="display: none;">⏹ Stop</button>
+        <section id="preview-area" class="preview-area hidden">
+            <div class="preview-container">
+                <video id="preview-video" autoplay muted playsinline class="preview-video"></video>
+                <div class="preview-overlay">
+                    <div class="recording-timer">
+                        <span class="timer-dot"></span>
+                        <span id="recording-timer">00:00</span>
+                    </div>
+                    <div class="recording-controls-overlay">
+                        <button id="pause-recording" class="btn-control" title="Pause (Space)">
+                            <svg viewBox="0 0 16 16" fill="currentColor">
+                                <rect x="4" y="3" width="2" height="10" rx="1"/>
+                                <rect x="10" y="3" width="2" height="10" rx="1"/>
+                            </svg>
+                        </button>
+                        <button id="stop-recording" class="btn-control btn-stop" title="Stop (Esc)">
+                            <svg viewBox="0 0 16 16" fill="currentColor">
+                                <rect x="3" y="3" width="10" height="10" rx="1"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="paused-overlay" class="paused-overlay hidden">
+                    <div class="paused-badge">
+                        <svg viewBox="0 0 16 16" fill="currentColor">
+                            <polygon points="4 3 13 8 4 13 4 3"/>
+                        </svg>
+                        <span>PAUSED</span>
+                    </div>
+                </div>
             </div>
         </section>
-
-        <section id="error-notifications"></section>
     </main>
 
     <aside id="sidebar">
-        <h2 id="saved-list-header">Saved Recordings</h2>
-        <div id="saved-list">
+        <div class="sidebar-header">
+            <h2 class="sidebar-title" id="saved-list-header">Saved Recordings</h2>
+            <button id="close-sidebar" class="btn-sidebar-close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 4L4 12M4 4l8 8"/>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="sidebar-search">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="7" cy="7" r="5"/>
+                <path d="M10 10l4 4"/>
+            </svg>
+            <input type="text" placeholder="Search recordings..." id="search-recordings">
+        </div>
+        
+        <div class="sidebar-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="screen">Screen</button>
+            <button class="filter-btn" data-filter="camera">Camera</button>
+        </div>
+        
+        <div id="saved-list" class="saved-list">
             <p class="empty-state">No recordings yet. Start your first one!</p>
         </div>
-        <button id="load-more-btn" style="display: none;">Load More</button>
-        <button id="clear-all">Clear All</button>
-        <button id="close-sidebar" class="close-sidebar">&times;</button>
+        
+        <div class="sidebar-footer">
+            <button id="load-more-btn" class="btn-load-more" style="display: none;">Load More</button>
+            <button id="clear-all" class="btn-clear">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M3 5h10M5 5v9a1 1 0 001 1h4a1 1 0 001-1V5M7 9l2 2M9 9l2 2"/>
+                </svg>
+                Clear All
+            </button>
+        </div>
     </aside>
 
-    <div id="modal-player" class="modal hidden">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <video id="modal-video" controls></video>
-        </div>
-    </div>
-
-    <footer>
-        <div class="storage-visualization">
-            <div class="storage-header">
-                <span>Storage Usage</span>
-                <span id="storage-info">0 MB / 0 MB</span>
-            </div>
-            <div class="storage-progress-container">
-                <div id="storage-progress-bar" class="storage-progress-bar"></div>
-            </div>
-            <div id="storage-warning" class="storage-warning hidden"></div>
-            <div class="storage-actions">
-                <button id="download-last">Download Last</button>
-                <button id="cleanup-storage">Cleanup Suggestions</button>
-            </div>
-            <div id="cleanup-suggestions" class="cleanup-suggestions hidden"></div>
-        </div>
-    </footer>
-
-    <!-- Keyboard Shortcuts Info Icon -->
-    <button id="shortcuts-info-btn" class="shortcuts-info-btn" title="Keyboard Shortcuts">ℹ️</button>
-
-    <!-- Keyboard Shortcuts Cheat Sheet Modal -->
-    <div id="shortcuts-modal" class="shortcuts-modal hidden">
-        <div class="shortcuts-content">
-            <span class="shortcuts-close">&times;</span>
-            <h2>Keyboard Shortcuts</h2>
-            <div class="shortcuts-list">
-                <div class="shortcut-item">
-                    <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>
-                    <span class="shortcut-desc">Start/Stop Recording</span>
-                </div>
-                <div class="shortcut-item">
-                    <kbd>Space</kbd>
-                    <span class="shortcut-desc">Pause/Resume (when recording)</span>
-                </div>
-                <div class="shortcut-item">
-                    <kbd>Esc</kbd>
-                    <span class="shortcut-desc">Cancel/Stop Recording</span>
-                </div>
-                <div class="shortcut-item">
-                    <kbd>Ctrl</kbd> + <kbd>S</kbd>
-                    <span class="shortcut-desc">Save Current Recording</span>
-                </div>
+    <!-- Video Player Modal -->
+    <div id="modal-player" class="modal-overlay hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal">
+            <button class="modal-close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 4L4 12M4 4l8 8"/>
+                </svg>
+            </button>
+            <div class="modal-content">
+                <video id="modal-video" controls class="modal-video"></video>
             </div>
         </div>
     </div>
 
-    <!-- Filename Edit Modal -->
-    <div id="filename-modal" class="modal hidden">
-        <div class="modal-content filename-modal-content">
-            <span class="filename-modal-close">&times;</span>
-            <h2>Save Recording</h2>
-            <div class="filename-preview">
-                <label for="filename-input">Filename:</label>
-                <input type="text" id="filename-input" class="filename-input" placeholder="Enter filename">
-            </div>
-            <div class="filename-preview-preview">
-                <span class="preview-label">Preview:</span>
-                <span id="filename-preview-text" class="filename-preview-text"></span>
-            </div>
-            <div class="filename-actions">
-                <button id="filename-cancel" class="btn-secondary">Cancel</button>
-                <button id="filename-save" class="btn-primary">Save</button>
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal shortcuts-modal">
+            <button class="modal-close shortcuts-modal-close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 4L4 12M4 4l8 8"/>
+                </svg>
+            </button>
+            <div class="modal-content">
+                <h2>Keyboard Shortcuts</h2>
+                <div class="shortcuts-list">
+                    <div class="shortcut-item">
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd>
+                        <span class="shortcut-desc">Start/Stop Recording</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Space</kbd>
+                        <span class="shortcut-desc">Pause/Resume</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Esc</kbd>
+                        <span class="shortcut-desc">Cancel Recording</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>⌘</kbd><kbd>S</kbd>
+                        <span class="shortcut-desc">Save Recording</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>⌘</kbd><kbd>K</kbd>
+                        <span class="shortcut-desc">Open Command Menu</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Naming Pattern Settings Modal -->
-    <div id="naming-pattern-modal" class="modal hidden">
-        <div class="modal-content naming-pattern-modal-content">
-            <span class="naming-pattern-modal-close">&times;</span>
-            <h2>Naming Pattern Settings</h2>
-            <div class="naming-pattern-form">
+    <!-- Filename Modal -->
+    <div id="filename-modal" class="modal-overlay hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal filename-modal-content">
+            <button class="modal-close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 4L4 12M4 4l8 8"/>
+                </svg>
+            </button>
+            <div class="modal-content">
+                <h2>Save Recording</h2>
                 <div class="form-group">
-                    <label for="naming-pattern-select">Pattern:</label>
+                    <label for="filename-input" class="form-label">Filename</label>
+                    <input type="text" id="filename-input" class="filename-input" placeholder="Enter filename">
+                </div>
+                <div class="filename-preview">
+                    <span class="filename-preview-label">Preview:</span>
+                    <span id="filename-preview-text" class="filename-preview-text"></span>
+                </div>
+                <div class="modal-actions">
+                    <button id="filename-cancel" class="btn-secondary">Cancel</button>
+                    <button id="filename-save" class="btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Naming Pattern Modal -->
+    <div id="naming-pattern-modal" class="modal-overlay hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal naming-pattern-modal-content">
+            <button class="modal-close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 4L4 12M4 4l8 8"/>
+                </svg>
+            </button>
+            <div class="modal-content">
+                <h2>Naming Pattern</h2>
+                <div class="form-group">
+                    <label for="naming-pattern-select" class="form-label">Pattern</label>
                     <select id="naming-pattern-select" class="naming-pattern-select">
-                        <option value="detailed">Detailed - {screen}{camera} - {duration} - {date} {time}</option>
-                        <option value="simple">Simple - {date} - {duration}</option>
-                        <option value="minimal">Minimal - Recording {datetime}</option>
+                        <option value="detailed">{screen}{camera} - {duration} - {date} {time}</option>
+                        <option value="simple">{date} - {duration}</option>
+                        <option value="minimal">Recording {datetime}</option>
                         <option value="custom">Custom</option>
                     </select>
                 </div>
                 <div class="form-group custom-pattern-group hidden">
-                    <label for="naming-pattern-custom">Custom Pattern:</label>
+                    <label for="naming-pattern-custom" class="form-label">Custom Pattern</label>
                     <input type="text" id="naming-pattern-custom" class="naming-pattern-custom" placeholder="{date} - {duration}">
                 </div>
                 <div class="naming-tokens">
-                    <label>Available Tokens:</label>
+                    <label>Available Tokens</label>
                     <div class="token-list">
                         <span class="token" data-token="{date}">{date}</span>
                         <span class="token" data-token="{time}">{time}</span>
@@ -165,16 +405,61 @@
                     </div>
                 </div>
                 <div class="pattern-preview">
-                    <label>Preview:</label>
+                    <span class="pattern-preview-label">Preview:</span>
                     <span id="pattern-preview-text" class="pattern-preview-text"></span>
                 </div>
-            </div>
-            <div class="naming-pattern-actions">
-                <button id="naming-pattern-cancel" class="btn-secondary">Cancel</button>
-                <button id="naming-pattern-save" class="btn-primary">Save</button>
+                <div class="modal-actions">
+                    <button id="naming-pattern-cancel" class="btn-secondary">Cancel</button>
+                    <button id="naming-pattern-save" class="btn-primary">Save</button>
+                </div>
             </div>
         </div>
     </div>
+
+    <footer class="app-footer">
+        <div class="storage-card">
+            <div class="storage-header">
+                <div class="storage-title">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M14 11V5a2 2 0 00-2-2H4a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2z"/>
+                        <path d="M2 9v2a2 2 0 002 2h8a2 2 0 002-2V9"/>
+                    </svg>
+                    <span>Storage</span>
+                </div>
+                <span id="storage-info" class="storage-info">0 MB / 0 MB</span>
+            </div>
+            <div class="storage-progress-container">
+                <div id="storage-progress-bar" class="storage-progress-bar"></div>
+            </div>
+            <div id="storage-warning" class="storage-warning hidden"></div>
+            <div class="storage-actions">
+                <button id="download-last" class="btn-storage">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M8 12v-4M4 8l4-4 4 4M2 14h12"/>
+                    </svg>
+                    Download Last
+                </button>
+                <button id="cleanup-storage" class="btn-storage">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 5h10M5 5v8a1 1 0 001 1h4a1 1 0 001-1V5"/>
+                    </svg>
+                    Cleanup
+                </button>
+            </div>
+            <div id="cleanup-suggestions" class="cleanup-suggestions hidden"></div>
+        </div>
+    </footer>
+
+    <!-- Keyboard Shortcuts Button -->
+    <button id="shortcuts-info-btn" class="shortcuts-info-btn" title="Keyboard Shortcuts ⌘/">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M5 6h2M5 9h2M9 6h2M9 9h2"/>
+        </svg>
+    </button>
+
+    <!-- Toast Notifications -->
+    <div id="error-notifications"></div>
 
     <script type="module" src="js/main.js"></script>
 </body>

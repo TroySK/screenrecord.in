@@ -8,6 +8,217 @@ import { startRecording, stopRecording, RecordingState, togglePause } from './re
 import { Validator, RecordingConfigValidator, StorageValidator, ValidationMessages } from './validation.js';
 
 // ============================================
+// COMMAND MENU CONTROLLER
+// ============================================
+
+export class CommandMenu {
+    constructor() {
+        this.menu = document.getElementById('command-menu');
+        this.backdrop = document.getElementById('command-backdrop');
+        this.input = document.getElementById('command-input');
+        this.results = document.getElementById('command-results');
+        this.isOpen = false;
+        this.selectedIndex = 0;
+        this.items = [];
+        this.actions = {
+            'new-recording': () => this.handleNewRecording(),
+            'saved-recordings': () => this.handleSavedRecordings(),
+            'naming-pattern': () => this.handleNamingPattern(),
+            'shortcuts': () => this.handleShortcuts(),
+            'dark-mode': () => this.handleDarkMode()
+        };
+        
+        this.init();
+    }
+    
+    init() {
+        // Collect all command items
+        this.items = Array.from(this.results.querySelectorAll('.command-item'));
+        
+        // Toggle on menu button click
+        const menuToggle = document.getElementById('menu-toggle');
+        menuToggle?.addEventListener('click', () => this.toggle());
+        
+        // Close on backdrop click
+        this.backdrop?.addEventListener('click', () => this.close());
+        
+        // Keep menu open when mouse is over menu container
+        // The backdrop handles the area outside the menu, so we only close when mouse leaves the menu container
+        this.menu?.addEventListener('mouseleave', () => this.close());
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => this.handleKeydown(e));
+        
+        // Click on items
+        this.items.forEach((item, index) => {
+            item.addEventListener('click', () => this.select(index));
+            item.addEventListener('mouseenter', () => this.select(index));
+        });
+        
+        // Search functionality
+        this.input?.addEventListener('input', (e) => this.handleSearch(e.target.value));
+    }
+    
+    toggle() {
+        this.isOpen ? this.close() : this.open();
+    }
+    
+    open() {
+        this.isOpen = true;
+        this.menu.classList.remove('hidden');
+        this.input.value = '';
+        this.input.focus();
+        this.selectedIndex = 0;
+        this.showAllItems();
+        this.updateSelection();
+    }
+    
+    close() {
+        this.isOpen = false;
+        this.menu.classList.add('hidden');
+    }
+    
+    handleKeydown(e) {
+        // Don't handle if typing in input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // Cmd+K or Ctrl+K to open
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            this.toggle();
+            return;
+        }
+        
+        if (!this.isOpen) return;
+        
+        switch (e.key) {
+            case 'Escape':
+                this.close();
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                this.selectedIndex = (this.selectedIndex + 1) % this.items.length;
+                this.updateSelection();
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                this.selectedIndex = (this.selectedIndex - 1 + this.items.length) % this.items.length;
+                this.updateSelection();
+                break;
+            case 'Enter':
+                e.preventDefault();
+                this.select(this.selectedIndex);
+                break;
+        }
+    }
+    
+    handleSearch(query) {
+        const searchTerm = query.toLowerCase().trim();
+        
+        if (!searchTerm) {
+            this.showAllItems();
+            return;
+        }
+        
+        this.items.forEach((item, index) => {
+            const text = item.querySelector('span')?.textContent.toLowerCase() || '';
+            const action = item.dataset.action || '';
+            const isVisible = text.includes(searchTerm) || action.includes(searchTerm);
+            item.style.display = isVisible ? 'flex' : 'none';
+        });
+        
+        // Update visible items for selection
+        this.items = Array.from(this.results.querySelectorAll('.command-item')).filter(item => item.style.display !== 'none');
+        this.selectedIndex = 0;
+        this.updateSelection();
+    }
+    
+    showAllItems() {
+        this.items.forEach(item => item.style.display = 'flex');
+        this.items = Array.from(this.results.querySelectorAll('.command-item'));
+    }
+    
+    updateSelection() {
+        this.items.forEach((item, index) => {
+            item.classList.toggle('selected', index === this.selectedIndex);
+        });
+        const selected = this.items[this.selectedIndex];
+        if (selected) {
+            selected.scrollIntoView({ block: 'nearest' });
+        }
+    }
+    
+    select(index) {
+        if (!this.items[index]) return;
+        
+        this.selectedIndex = index;
+        this.updateSelection();
+        
+        const action = this.items[index]?.dataset.action;
+        if (action && this.actions[action]) {
+            this.actions[action]();
+        }
+    }
+    
+    handleNewRecording() {
+        this.close();
+        // Focus on first config toggle
+        const screenToggle = document.getElementById('screen-toggle');
+        screenToggle?.focus();
+    }
+    
+    handleSavedRecordings() {
+        this.close();
+        const sidebar = document.getElementById('sidebar');
+        sidebar?.classList.add('open');
+    }
+    
+    handleNamingPattern() {
+        this.close();
+        openNamingPatternModal();
+    }
+    
+    handleShortcuts() {
+        this.close();
+        const shortcutsModal = document.getElementById('shortcuts-modal');
+        shortcutsModal?.classList.remove('hidden');
+    }
+    
+    handleDarkMode() {
+        this.close();
+        toggleDarkMode();
+    }
+}
+
+// ============================================
+// DARK MODE TOGGLE
+// ============================================
+
+export function toggleDarkMode() {
+    const html = document.documentElement;
+    const isDark = html.classList.contains('dark');
+    
+    if (isDark) {
+        html.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    } else {
+        html.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+export function initDarkMode() {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+    }
+}
+
+// ============================================
 // CUSTOM PIP ELEMENT MANAGEMENT
 // ============================================
 
@@ -422,6 +633,7 @@ export const elements = {
     shortcutsInfoBtn: null,
     shortcutsModal: null,
     shortcutsClose: null,
+    shortcutsModalClose: null,
     // Filename edit modal elements
     filenameModal: null,
     filenameInput: null,
@@ -498,6 +710,7 @@ export function initElements() {
     elements.shortcutsInfoBtn = document.getElementById('shortcuts-info-btn');
     elements.shortcutsModal = document.getElementById('shortcuts-modal');
     elements.shortcutsClose = document.querySelector('.shortcuts-close');
+    elements.shortcutsModalClose = document.querySelector('.shortcuts-modal-close');
     // Filename edit modal elements
     elements.filenameModal = document.getElementById('filename-modal');
     elements.filenameInput = document.getElementById('filename-input');
@@ -514,7 +727,7 @@ export function initElements() {
 }
 
 // ============================================
-// TOAST NOTIFICATIONS
+// TOAST NOTIFICATIONS - Linear Style
 // ============================================
 
 export function showToast(message, type = 'info') {
@@ -522,9 +735,56 @@ export function showToast(message, type = 'info') {
     
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+    
+    // Add icon based on type
+    const iconSvg = getToastIcon(type);
+    toast.innerHTML = `
+        <span class="toast-icon">${iconSvg}</span>
+        <span class="toast-message">${message}</span>
+        <button class="toast-close">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 4L4 12M4 4l8 8"/>
+            </svg>
+        </button>
+    `;
+    
+    // Close button handler
+    toast.querySelector('.toast-close')?.addEventListener('click', () => {
+        toast.remove();
+    });
+    
     elements.errorNotifications.appendChild(toast);
-    setTimeout(() => toast.remove(), CONFIG.TOAST_DURATION);
+    
+    // Auto remove
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'toast-exit 0.2s ease forwards';
+            setTimeout(() => toast.remove(), 200);
+        }
+    }, CONFIG.TOAST_DURATION);
+}
+
+function getToastIcon(type) {
+    const icons = {
+        success: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M5 8l2 2 4-4"/>
+        </svg>`,
+        error: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M5 5l6 6M11 5l-6 6"/>
+        </svg>`,
+        warning: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 3v6M8 11v2"/>
+            <circle cx="8" cy="13" r="1"/>
+            <path d="M2 14a6 6 0 0112 0v-1"/>
+        </svg>`,
+        info: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M8 5v4M8 11v1"/>
+        </svg>`
+    };
+    return icons[type] || icons.info;
 }
 
 // ============================================
@@ -732,7 +992,7 @@ export function toggleCleanupSuggestions() {
 // ============================================
 
 /**
- * Create a video card element for a single recording
+ * Create a video card element for a single recording - Linear Style
  * @param {Object} video - Video object from database
  * @returns {HTMLElement} - The card element
  */
@@ -742,58 +1002,68 @@ function createVideoCard(video) {
     // Thumbnail
     const thumbnail = createElement('img', {
         src: video.thumbnail,
-        alt: 'Thumbnail'
+        alt: 'Thumbnail',
+        className: 'saved-card-thumbnail'
     });
     
-    const info = createElement('div', { className: 'saved-card-info' });
+    const content = createElement('div', { className: 'saved-card-content' });
     
     // Title
-    const title = createElement('h3', {
+    const title = createElement('span', {
+        className: 'saved-card-title',
         textContent: sanitizeTitle(video.title)
     });
     
-    // Date and duration
+    // Meta info
     const dateStr = formatDate(video.date);
-    const durationStr = `${(video.duration || 0).toFixed(1)}s`;
-    const meta1 = createElement('p', { textContent: `${dateStr} | ${durationStr}` });
-    
-    // Config
-    const configStr = Object.keys(video.config)
-        .filter(k => video.config[k])
-        .map(k => k.replace(/([A-Z])/g, ' $1').trim())
-        .join(', ');
-    const meta2 = createElement('p', { textContent: `Config: ${configStr}` });
-    
-    // Size
+    const durationStr = formatDuration(video.duration || 0);
     const sizeStr = formatFileSize(video.size || 0);
-    const meta3 = createElement('p', { textContent: `Size: ${sizeStr}` });
     
-    info.appendChild(title);
-    info.appendChild(meta1);
-    info.appendChild(meta2);
-    info.appendChild(meta3);
+    const meta = createElement('div', { className: 'saved-card-meta' });
+    meta.innerHTML = `${dateStr} · ${durationStr} · ${sizeStr}`;
+    
+    content.appendChild(title);
+    content.appendChild(meta);
     
     const actions = createElement('div', { className: 'saved-card-actions' });
     
+    // Play button
     const playBtn = createElement('button', {
-        className: 'play-btn',
-        textContent: 'Play',
-        onclick: () => playVideo(video.id)
+        className: 'btn-action btn-play',
+        onclick: () => playVideo(video.id),
+        innerHTML: `
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polygon points="4 3 12 8 4 13 4 3"/>
+            </svg>
+            Play
+        `
     });
     
+    // Download button
     const downloadBtn = createElement('button', {
-        className: 'download-btn',
-        textContent: 'Download',
-        onclick: () => downloadSaved(video.id, showToast)
+        className: 'btn-action btn-download',
+        onclick: () => downloadSaved(video.id, showToast),
+        innerHTML: `
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M8 12v-4M4 8l4-4 4 4M2 14h12"/>
+            </svg>
+            Download
+        `
     });
     
+    // Delete button
     const deleteBtn = createElement('button', {
-        className: 'delete-btn',
-        textContent: 'Delete',
+        className: 'btn-action btn-delete',
         onclick: () => deleteVideo(video.id, showToast).then(() => {
             populateSavedList();
             updateStorageInfo();
-        })
+        }),
+        innerHTML: `
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 5h10M5 5v8a1 1 0 001 1h4a1 1 0 001-1V5M7 9l2 2M9 9l2 2"/>
+            </svg>
+            Delete
+        `
     });
     
     actions.appendChild(playBtn);
@@ -801,7 +1071,7 @@ function createVideoCard(video) {
     actions.appendChild(deleteBtn);
     
     card.appendChild(thumbnail);
-    card.appendChild(info);
+    card.appendChild(content);
     card.appendChild(actions);
     
     return card;
@@ -1002,7 +1272,12 @@ export function setupEventListeners() {
             
             // Show preview canvas if exists
             if (RecordingState.previewCanvas && elements.previewArea) {
-                elements.previewArea.insertBefore(RecordingState.previewCanvas, elements.previewVideo);
+                // Check if previewVideo is a child of previewArea
+                if (elements.previewVideo && elements.previewArea.contains(elements.previewVideo)) {
+                    elements.previewArea.insertBefore(RecordingState.previewCanvas, elements.previewVideo);
+                } else {
+                    elements.previewArea.appendChild(RecordingState.previewCanvas);
+                }
                 elements.previewVideo.style.display = 'none';
                 elements.previewArea.classList.remove('hidden');
             }
@@ -1058,24 +1333,22 @@ export function setupEventListeners() {
         }
     });
     
-    // Sidebar
-    elements.toggleSidebar?.addEventListener('click', () => {
+    // Sidebar toggle
+    const sidebarToggle = document.getElementById('toggle-sidebar');
+    sidebarToggle?.addEventListener('click', () => {
         elements.sidebar?.classList.toggle('open');
-        elements.toggleSidebar.textContent = elements.sidebar?.classList.contains('open') ? CONFIG.SIDEBAR_OPEN_TEXT : CONFIG.SIDEBAR_CLOSED_TEXT;
     });
     
     elements.closeSidebar?.addEventListener('click', () => {
         elements.sidebar?.classList.remove('open');
-        elements.toggleSidebar.textContent = CONFIG.SIDEBAR_CLOSED_TEXT;
     });
     
     // Close sidebar on outside click
     document.addEventListener('click', (e) => {
         if (elements.sidebar?.classList.contains('open') &&
             !elements.sidebar.contains(e.target) &&
-            !elements.toggleSidebar.contains(e.target)) {
+            !sidebarToggle?.contains(e.target)) {
             elements.sidebar.classList.remove('open');
-            elements.toggleSidebar.textContent = CONFIG.SIDEBAR_CLOSED_TEXT;
         }
     });
     
@@ -1197,12 +1470,13 @@ export function setupEventListeners() {
         elements.shortcutsModal?.classList.remove('hidden');
     });
     
-    elements.shortcutsClose?.addEventListener('click', () => {
+    elements.shortcutsModalClose?.addEventListener('click', () => {
         elements.shortcutsModal?.classList.add('hidden');
     });
     
+    // Close on backdrop click
     elements.shortcutsModal?.addEventListener('click', (e) => {
-        if (e.target === elements.shortcutsModal) {
+        if (e.target === elements.shortcutsModal || e.target.classList.contains('modal-backdrop')) {
             elements.shortcutsModal.classList.add('hidden');
         }
     });
@@ -1235,6 +1509,12 @@ export function toggleSidebar(forceState) {
 // ============================================
 
 export async function initUI() {
+    // Initialize dark mode first
+    initDarkMode();
+    
+    // Initialize command menu
+    new CommandMenu();
+    
     initElements();
     
     // Initialize capabilities-based UI adjustments
@@ -1260,7 +1540,8 @@ export async function initUI() {
     if (!Capabilities.screenSharing) {
         if (elements.systemAudioToggle) {
             elements.systemAudioToggle.disabled = true;
-            elements.systemAudioToggle.title = 'System audio requires Chrome with flag or extension';
+            elements.systemAudioToggle.parentElement.style.opacity = '0.5';
+            elements.systemAudioToggle.parentElement.style.cursor = 'not-allowed';
         }
         showToast('System audio may need browser extension.', 'info');
     }
@@ -1274,19 +1555,22 @@ export async function initUI() {
     // Disable camera toggle if not supported
     if (!Capabilities.camera && elements.cameraToggle) {
         elements.cameraToggle.disabled = true;
-        elements.cameraToggle.title = 'Camera not supported on this browser';
+        elements.cameraToggle.parentElement.style.opacity = '0.5';
+        elements.cameraToggle.parentElement.style.cursor = 'not-allowed';
     }
     
     // Disable microphone toggle if not supported
     if (!Capabilities.microphone && elements.micToggle) {
         elements.micToggle.disabled = true;
-        elements.micToggle.title = 'Microphone not supported on this browser';
+        elements.micToggle.parentElement.style.opacity = '0.5';
+        elements.micToggle.parentElement.style.cursor = 'not-allowed';
     }
     
     // Disable screen toggle if not supported
     if (!Capabilities.screenSharing && elements.screenToggle) {
         elements.screenToggle.disabled = true;
-        elements.screenToggle.title = 'Screen sharing not supported on this browser';
+        elements.screenToggle.parentElement.style.opacity = '0.5';
+        elements.screenToggle.parentElement.style.cursor = 'not-allowed';
     }
     
     // Expose functions for onclick handlers
@@ -1314,6 +1598,34 @@ function handleKeyboardShortcuts(e) {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifierKey = isMac ? e.metaKey : e.ctrlKey;
     
+    // Cmd/Ctrl + K: Open command menu (handled by CommandMenu class)
+    if (modifierKey && e.key === 'k') {
+        return; // Let CommandMenu handle this
+    }
+    
+    // Cmd/Ctrl + /: Show shortcuts
+    if (modifierKey && e.key === '/') {
+        e.preventDefault();
+        const shortcutsModal = document.getElementById('shortcuts-modal');
+        shortcutsModal?.classList.remove('hidden');
+        return;
+    }
+    
+    // Cmd/Ctrl + N: New recording
+    if (modifierKey && e.key === 'n') {
+        e.preventDefault();
+        const screenToggle = document.getElementById('screen-toggle');
+        screenToggle?.focus();
+        return;
+    }
+    
+    // Cmd/Ctrl + D: Toggle dark mode
+    if (modifierKey && e.key === 'd') {
+        e.preventDefault();
+        toggleDarkMode();
+        return;
+    }
+    
     // Ctrl/Cmd + Shift + R: Start/Stop recording
     if (modifierKey && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
@@ -1330,7 +1642,9 @@ function handleKeyboardShortcuts(e) {
         e.preventDefault();
         togglePause(showToast).then(isPaused => {
             if (isPaused !== undefined && elements.pauseBtn) {
-                elements.pauseBtn.textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+                elements.pauseBtn.innerHTML = isPaused ?
+                    `<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="4 3 13 8 4 13 4 3"/></svg> Resume` :
+                    `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="2" height="10" rx="1"/><rect x="10" y="3" width="2" height="10" rx="1"/></svg> Pause`;
                 if (elements.pausedOverlay) {
                     elements.pausedOverlay.classList.toggle('hidden', !isPaused);
                 }
@@ -1339,10 +1653,36 @@ function handleKeyboardShortcuts(e) {
         return;
     }
     
-    // Escape: Cancel/Stop recording
-    if (e.key === 'Escape' && RecordingState.isRecording) {
-        e.preventDefault();
-        stopRecording(showToast);
+    // Escape: Cancel/Stop recording or close modals
+    if (e.key === 'Escape') {
+        // Close modals first
+        const shortcutsModal = document.getElementById('shortcuts-modal');
+        const filenameModal = document.getElementById('filename-modal');
+        const namingModal = document.getElementById('naming-pattern-modal');
+        const commandMenu = document.getElementById('command-menu');
+        
+        if (!shortcutsModal?.classList.contains('hidden')) {
+            shortcutsModal.classList.add('hidden');
+            return;
+        }
+        if (!filenameModal?.classList.contains('hidden')) {
+            filenameModal.classList.add('hidden');
+            return;
+        }
+        if (!namingModal?.classList.contains('hidden')) {
+            namingModal.classList.add('hidden');
+            return;
+        }
+        if (!commandMenu?.classList.contains('hidden')) {
+            commandMenu.classList.add('hidden');
+            return;
+        }
+        
+        // Then handle recording
+        if (RecordingState.isRecording) {
+            e.preventDefault();
+            stopRecording(showToast);
+        }
         return;
     }
     
