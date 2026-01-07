@@ -770,7 +770,7 @@ export function initElements() {
 }
 
 // ============================================
-// TOAST NOTIFICATIONS - Linear Style
+// TOAST NOTIFICATIONS - Style
 // ============================================
 
 export function showToast(message, type = 'info') {
