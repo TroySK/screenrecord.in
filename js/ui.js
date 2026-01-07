@@ -4,8 +4,383 @@
 
 import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG, Capabilities, initCapabilitiesUI } from './utils.js';
 import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo, getVideosPaginated, getVideosCount, getCleanupSuggestions } from './storage.js';
-import { startRecording, stopRecording, RecordingState } from './recording.js';
+import { startRecording, stopRecording, RecordingState, togglePause } from './recording.js';
 import { Validator, RecordingConfigValidator, StorageValidator, ValidationMessages } from './validation.js';
+
+// ============================================
+// CUSTOM PIP ELEMENT MANAGEMENT
+// ============================================
+
+let pipWindow = null;
+let pipTimerInterval = null;
+let pipStartTime = null;
+let pipPausedTime = 0;
+let pipIsPaused = false;
+let pipPausedStart = null;
+
+/**
+ * Check if Document Picture-in-Picture is supported
+ * @returns {boolean}
+ */
+export function isDocumentPipSupported() {
+    return 'documentPictureInPicture' in window;
+}
+
+/**
+ * Open the custom PiP element using Document Picture-in-Picture API
+ * This creates a system-wide floating window with video, timer, and controls
+ * @param {MediaStream} stream - The media stream to display
+ */
+export async function openPipElement(stream) {
+    if (!isDocumentPipSupported()) {
+        showToast('Document Picture-in-Picture not supported in this browser', 'error');
+        return false;
+    }
+
+    try {
+        // Open Document PiP window
+        pipWindow = await window.documentPictureInPicture.requestWindow({
+            width: 400,
+            height: 300
+        });
+
+        // Write the PiP content to the new window
+        pipWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Recording Controls</title>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                        color: #fff;
+                        min-height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    #pip-video-container {
+                        position: relative;
+                        width: 100%;
+                        aspect-ratio: 16/9;
+                        background: #000;
+                        overflow: hidden;
+                        flex-shrink: 0;
+                    }
+                    #pip-video {
+                        width: 100%;
+                        height: 100%;
+                        object-fit: cover;
+                    }
+                    #pip-timer {
+                        position: absolute;
+                        top: 8px;
+                        left: 8px;
+                        background: rgba(0, 0, 0, 0.7);
+                        color: #fff;
+                        padding: 4px 10px;
+                        border-radius: 4px;
+                        font-size: 14px;
+                        font-weight: bold;
+                        font-family: 'Courier New', monospace;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+                    .recording-dot {
+                        width: 8px;
+                        height: 8px;
+                        background: #ff4444;
+                        border-radius: 50%;
+                        animation: pulse 1.5s ease-in-out infinite;
+                    }
+                    @keyframes pulse {
+                        0%, 100% { opacity: 1; transform: scale(1); }
+                        50% { opacity: 0.5; transform: scale(1.2); }
+                    }
+                    #pip-controls {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 12px;
+                        background: rgba(255, 255, 255, 0.05);
+                    }
+                    #pip-controls button {
+                        background: rgba(255, 255, 255, 0.1);
+                        border: none;
+                        color: #fff;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: all 0.2s ease;
+                    }
+                    #pip-controls button:hover {
+                        background: rgba(255, 255, 255, 0.2);
+                        transform: scale(1.05);
+                    }
+                    #pip-stop-btn {
+                        background: #f44336 !important;
+                    }
+                    #pip-stop-btn:hover {
+                        background: #d32f2f !important;
+                    }
+                    #pip-pause-btn {
+                        background: #ff9800 !important;
+                    }
+                    #pip-pause-btn:hover {
+                        background: #e68900 !important;
+                    }
+                    #pip-status {
+                        text-align: center;
+                        padding: 8px;
+                        font-size: 12px;
+                        color: rgba(255, 255, 255, 0.7);
+                        background: rgba(0, 0, 0, 0.2);
+                    }
+                    body.paused .recording-dot {
+                        background: #ff9800;
+                        animation: none;
+                    }
+                    body.paused #pip-pause-btn {
+                        background: #4CAF50 !important;
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="pip-video-container">
+                    <video id="pip-video" autoplay muted playsinline></video>
+                    <div id="pip-timer">
+                        <span class="recording-dot"></span>
+                        <span id="pip-timer-text">00:00</span>
+                    </div>
+                </div>
+                <div id="pip-controls">
+                    <button id="pip-pause-btn" title="Pause/Resume recording">⏸ Pause</button>
+                    <button id="pip-stop-btn" title="Stop recording">⏹ Stop</button>
+                </div>
+                <div id="pip-status">Recording active - Keep this window visible</div>
+                <script>
+                    // Set video source
+                    const video = document.getElementById('pip-video');
+                    const timerText = document.getElementById('pip-timer-text');
+                    const pauseBtn = document.getElementById('pip-pause-btn');
+                    const stopBtn = document.getElementById('pip-stop-btn');
+                    const status = document.getElementById('pip-status');
+                    
+                    // Expose for communication with opener
+                    window.pipVideo = video;
+                    window.pipTimerText = timerText;
+                    window.pipPauseBtn = pauseBtn;
+                    window.pipStatus = status;
+                    window.pipBody = document.body;
+                    
+                    // Handle pause button click
+                    pauseBtn.addEventListener('click', () => {
+                        window.opener.postMessage({ type: 'pip-pause' }, '*');
+                    });
+                    
+                    // Handle stop button click
+                    stopBtn.addEventListener('click', () => {
+                        window.opener.postMessage({ type: 'pip-stop' }, '*');
+                    });
+                    
+                    // Handle window close
+                    window.addEventListener('beforeunload', () => {
+                        window.opener.postMessage({ type: 'pip-close' }, '*');
+                    });
+                <\/script>
+            </body>
+            </html>
+        `);
+        
+        pipWindow.document.close();
+
+        // Set video source after a short delay to ensure window is ready
+        setTimeout(() => {
+            if (pipWindow && stream) {
+                const video = pipWindow.document.getElementById('pip-video');
+                if (video) {
+                    // Clone the stream to avoid conflicts
+                    const clonedStream = new MediaStream(stream.getTracks());
+                    video.srcObject = clonedStream;
+                }
+            }
+        }, 100);
+
+        // Listen for messages from the PiP window
+        const messageHandler = (event) => {
+            if (event.source !== pipWindow) return;
+            
+            switch (event.data.type) {
+                case 'pip-pause':
+                    handlePipPause();
+                    break;
+                case 'pip-stop':
+                    handlePipStop();
+                    break;
+                case 'pip-close':
+                    handlePipClose();
+                    break;
+            }
+        };
+        
+        window.addEventListener('message', messageHandler);
+        
+        // Store handler reference for cleanup
+        pipWindow._messageHandler = messageHandler;
+
+        // Start timer
+        startPipTimer();
+
+        // Hide PiP info
+        if (elements.pipInfo) {
+            elements.pipInfo.classList.add('hidden');
+        }
+
+        showToast('Recording controls opened in floating window!', 'success');
+        return true;
+        
+    } catch (err) {
+        console.error('Document PiP error:', err);
+        showToast('Failed to open floating window: ' + err.message, 'error');
+        return false;
+    }
+}
+
+/**
+ * Handle pause button click from PiP window
+ */
+async function handlePipPause() {
+    const isPaused = await togglePause();
+    
+    if (isPaused !== null && isPaused !== undefined) {
+        pipIsPaused = isPaused;
+        
+        if (pipWindow && !pipWindow.closed) {
+            const pauseBtn = pipWindow.document.getElementById('pip-pause-btn');
+            const status = pipWindow.document.getElementById('pip-status');
+            
+            if (pauseBtn) {
+                pauseBtn.innerHTML = isPaused ? '▶ Resume' : '⏸ Pause';
+            }
+            
+            if (status) {
+                status.textContent = isPaused ? 'Recording paused' : 'Recording active - Keep this window visible';
+            }
+            
+            pipWindow.document.body.classList.toggle('paused', isPaused);
+        }
+        
+        if (isPaused) {
+            pipPausedStart = Date.now();
+        } else if (pipPausedStart) {
+            pipPausedTime += Date.now() - pipPausedStart;
+            pipPausedStart = null;
+        }
+    }
+}
+
+/**
+ * Handle stop button click from PiP window
+ */
+function handlePipStop() {
+    stopRecording(showToast);
+    closePipElement();
+}
+
+/**
+ * Handle close event from PiP window
+ */
+function handlePipClose() {
+    closePipElement();
+}
+
+/**
+ * Close the custom PiP element
+ */
+export function closePipElement() {
+    if (pipWindow) {
+        // Remove message listener
+        if (pipWindow._messageHandler) {
+            window.removeEventListener('message', pipWindow._messageHandler);
+        }
+        
+        // Close the PiP window
+        try {
+            pipWindow.close();
+        } catch (e) {
+            // Ignore close errors
+        }
+        pipWindow = null;
+    }
+    
+    // Stop timer
+    stopPipTimer();
+    
+    // Reset state
+    pipStartTime = null;
+    pipPausedTime = 0;
+    pipIsPaused = false;
+    pipPausedStart = null;
+}
+
+/**
+ * Start the PiP timer
+ */
+function startPipTimer() {
+    pipStartTime = Date.now();
+    pipPausedTime = 0;
+    pipIsPaused = false;
+    
+    if (pipTimerInterval) {
+        clearInterval(pipTimerInterval);
+    }
+    
+    pipTimerInterval = setInterval(updatePipTimer, 1000);
+}
+
+/**
+ * Stop the PiP timer
+ */
+function stopPipTimer() {
+    if (pipTimerInterval) {
+        clearInterval(pipTimerInterval);
+        pipTimerInterval = null;
+    }
+}
+
+/**
+ * Update the PiP timer display
+ */
+function updatePipTimer() {
+    if (!pipStartTime || pipIsPaused) return;
+    
+    const elapsed = (Date.now() - pipStartTime - pipPausedTime) / 1000;
+    const mins = Math.floor(elapsed / 60);
+    const secs = Math.floor(elapsed % 60);
+    const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    // Update timer in PiP window
+    if (pipWindow && !pipWindow.closed) {
+        const timerText = pipWindow.document.getElementById('pip-timer-text');
+        if (timerText) {
+            timerText.textContent = formatted;
+        }
+    }
+    
+    // Update document title
+    document.title = `● ${formatted} - Recording`;
+}
 
 // ============================================
 // DOM ELEMENTS CACHE
@@ -658,16 +1033,37 @@ export function setupEventListeners() {
         elements.configSummary.textContent = 'Select inputs to start';
     });
     
-    // PiP button
+    // PiP button - use Document Picture-in-Picture API with custom controls
     elements.enablePipBtn?.addEventListener('click', async () => {
-        if (RecordingState.cameraVideo && !document.pictureInPictureElement) {
+        if (isDocumentPipSupported()) {
+            // Use Document PiP with custom controls (system-wide floating window)
+            if (RecordingState.cameraVideo || RecordingState.previewCanvas) {
+                let stream = null;
+                
+                if (RecordingState.cameraVideo && RecordingState.cameraVideo.srcObject) {
+                    stream = RecordingState.cameraVideo.srcObject;
+                } else if (RecordingState.previewCanvas) {
+                    stream = RecordingState.previewCanvas.captureStream(30);
+                }
+                
+                if (stream) {
+                    await openPipElement(stream);
+                } else {
+                    showToast('No video stream available', 'error');
+                }
+            } else {
+                showToast('No video stream available', 'error');
+            }
+        } else {
+            // Fallback to native video-only PiP
             try {
-                await RecordingState.cameraVideo.requestPictureInPicture();
-                showToast('Camera entered Picture-in-Picture mode!', 'success');
-                elements.pipInfo?.classList.add('hidden');
+                if (RecordingState.cameraVideo) {
+                    await RecordingState.cameraVideo.requestPictureInPicture();
+                    showToast('Camera entered Picture-in-Picture mode!', 'success');
+                    elements.pipInfo?.classList.add('hidden');
+                }
             } catch (err) {
                 console.error('PiP error:', err);
-                // Fallback to popup if PiP fails
                 openPopupFallback();
             }
         }
