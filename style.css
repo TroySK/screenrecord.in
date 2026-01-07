@@ -883,12 +883,57 @@ img, video {
     font-family: var(--font-mono);
 }
 
+/* Recording Action Buttons - Pause/Stop below start button */
+.recording-action-buttons {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.btn-action-record {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-action-record svg {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-pause {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-pause:hover {
+    background: var(--warning-hover);
+}
+
+.btn-stop {
+    background: var(--error);
+    color: white;
+}
+
+.btn-stop:hover {
+    background: var(--error-hover);
+}
+
 /* ==========================================================================
    Preview Area
    ========================================================================== */
 
 .preview-area {
-    margin: var(--space-4) 0;
+    margin-top: var(--space-4);
 }
 
 .preview-container {
@@ -897,6 +942,7 @@ img, video {
     overflow: hidden;
     background: var(--gray-900);
     box-shadow: var(--shadow-md);
+    width: 100%;
 }
 
 .preview-video {

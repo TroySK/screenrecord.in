@@ -526,7 +526,8 @@ async function startSimpleRecording(config, showToast = null) {
     
     if (elements.previewVideo) elements.previewVideo.srcObject = RecordingState.mediaStream;
     if (elements.previewArea) elements.previewArea.classList.remove('hidden');
-    if (elements.stopBtn) elements.stopBtn.style.display = 'block';
+    // Show recording action buttons (pause/stop)
+    if (elements.recordingActionButtons) elements.recordingActionButtons.classList.remove('hidden');
     if (elements.startBtn) elements.startBtn.disabled = true;
     
     return startMediaRecorder(RecordingState.mediaStream, config, showToast);
@@ -590,6 +591,7 @@ async function startMediaRecorder(stream, config, showToast = null) {
 export async function stopRecording(showToast = null) {
     const ui = await import('./ui.js');
     const { elements, updateToggles, AppConfig } = ui;
+    const { closePipElement } = ui;
     
     RecordingState.isRecording = false;
     RecordingState.isPaused = false;
@@ -615,7 +617,10 @@ export async function stopRecording(showToast = null) {
         window.recordingPopup.close();
     }
     
-    // Exit PiP
+    // Close custom PiP element
+    closePipElement();
+    
+    // Exit native PiP
     if (document.pictureInPictureElement) {
         document.exitPictureInPicture().catch(console.error);
     }
@@ -665,8 +670,8 @@ export async function stopRecording(showToast = null) {
         }
     });
     
-    // Update UI
-    if (elements.stopBtn) elements.stopBtn.style.display = 'none';
+    // Update UI - hide recording action buttons
+    if (elements.recordingActionButtons) elements.recordingActionButtons.classList.add('hidden');
     if (elements.previewVideo) elements.previewVideo.srcObject = null;
     
     // Hide recording timer
@@ -684,6 +689,9 @@ export async function stopRecording(showToast = null) {
     if (elements.pipInfo) elements.pipInfo.classList.add('hidden');
     if (elements.previewVideo) elements.previewVideo.style.display = 'block';
     if (elements.previewArea) elements.previewArea.classList.add('hidden');
+    
+    // Hide paused overlay
+    if (elements.pausedOverlay) elements.pausedOverlay.classList.add('hidden');
     
     // Save recording - get config from AppConfig
     const config = AppConfig?.config || {};

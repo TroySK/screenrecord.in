@@ -359,6 +359,44 @@
                 <span class="btn-record-shortcut">⌘⇧R</span>
             </button>
 
+            <!-- Recording Controls - Pause/Stop buttons shown during recording -->
+            <div id="recording-action-buttons" class="recording-action-buttons hidden">
+                <button id="pause-recording" class="btn-action-record btn-pause">
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="4" y="3" width="2" height="10" rx="1"/>
+                        <rect x="10" y="3" width="2" height="10" rx="1"/>
+                    </svg>
+                    <span>Pause</span>
+                </button>
+                <button id="stop-recording" class="btn-action-record btn-stop">
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="3" y="3" width="10" height="10" rx="1"/>
+                    </svg>
+                    <span>Stop</span>
+                </button>
+            </div>
+
+            <!-- Preview Area - Shown below recording controls -->
+            <section id="preview-area" class="preview-area hidden">
+                <div class="preview-container">
+                    <video id="preview-video" autoplay muted playsinline class="preview-video"></video>
+                    <div class="preview-overlay">
+                        <div class="recording-timer">
+                            <span class="timer-dot"></span>
+                            <span id="recording-timer">00:00</span>
+                        </div>
+                    </div>
+                    <div id="paused-overlay" class="paused-overlay hidden">
+                        <div class="paused-badge">
+                            <svg viewBox="0 0 16 16" fill="currentColor">
+                                <polygon points="4 3 13 8 4 13 4 3"/>
+                            </svg>
+                            <span>PAUSED</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <div id="pip-info" class="pip-info hidden">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="8" cy="8" r="6"/>
@@ -493,38 +531,6 @@
             </dl>
         </section>
 
-        <section id="preview-area" class="preview-area hidden">
-            <div class="preview-container">
-                <video id="preview-video" autoplay muted playsinline class="preview-video"></video>
-                <div class="preview-overlay">
-                    <div class="recording-timer">
-                        <span class="timer-dot"></span>
-                        <span id="recording-timer">00:00</span>
-                    </div>
-                    <div class="recording-controls-overlay">
-                        <button id="pause-recording" class="btn-control" title="Pause (Space)">
-                            <svg viewBox="0 0 16 16" fill="currentColor">
-                                <rect x="4" y="3" width="2" height="10" rx="1"/>
-                                <rect x="10" y="3" width="2" height="10" rx="1"/>
-                            </svg>
-                        </button>
-                        <button id="stop-recording" class="btn-control btn-stop" title="Stop (Esc)">
-                            <svg viewBox="0 0 16 16" fill="currentColor">
-                                <rect x="3" y="3" width="10" height="10" rx="1"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <div id="paused-overlay" class="paused-overlay hidden">
-                    <div class="paused-badge">
-                        <svg viewBox="0 0 16 16" fill="currentColor">
-                            <polygon points="4 3 13 8 4 13 4 3"/>
-                        </svg>
-                        <span>PAUSED</span>
-                    </div>
-                </div>
-            </div>
-        </section>
     </main>
 
     <aside id="sidebar">

@@ -610,6 +610,7 @@ export const elements = {
     startBtn: null,
     stopBtn: null,
     pauseBtn: null,
+    recordingActionButtons: null,
     previewArea: null,
     previewVideo: null,
     pipInfo: null,
@@ -725,6 +726,7 @@ export function initElements() {
     elements.startBtn = document.getElementById('start-recording');
     elements.stopBtn = document.getElementById('stop-recording');
     elements.pauseBtn = document.getElementById('pause-recording');
+    elements.recordingActionButtons = document.getElementById('recording-action-buttons');
     elements.previewArea = document.getElementById('preview-area');
     elements.previewVideo = document.getElementById('preview-video');
     elements.pipInfo = document.getElementById('pip-info');
@@ -1339,9 +1341,20 @@ export function setupEventListeners() {
         
         const result = await startRecording(AppConfig.config, showToast);
         if (result) {
-            elements.stopBtn.style.display = 'block';
-            elements.pauseBtn.style.display = 'block';
-            elements.pauseBtn.textContent = '⏸ Pause';
+            // Show recording action buttons (pause/stop)
+            if (elements.recordingActionButtons) {
+                elements.recordingActionButtons.classList.remove('hidden');
+            }
+            // Update pause button text
+            if (elements.pauseBtn) {
+                elements.pauseBtn.innerHTML = `
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="4" y="3" width="2" height="10" rx="1"/>
+                        <rect x="10" y="3" width="2" height="10" rx="1"/>
+                    </svg>
+                    <span>Pause</span>
+                `;
+            }
             elements.startBtn.disabled = true;
             updateToggles(true);
             
@@ -1403,7 +1416,20 @@ export function setupEventListeners() {
         const recording = await import('./recording.js');
         const isPaused = recording.togglePause(showToast);
         if (isPaused !== undefined) {
-            elements.pauseBtn.textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+            if (elements.pauseBtn) {
+                elements.pauseBtn.innerHTML = isPaused ? `
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <polygon points="4 3 13 8 4 13 4 3"/>
+                    </svg>
+                    <span>Resume</span>
+                ` : `
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="4" y="3" width="2" height="10" rx="1"/>
+                        <rect x="10" y="3" width="2" height="10" rx="1"/>
+                    </svg>
+                    <span>Pause</span>
+                `;
+            }
             if (elements.pausedOverlay) {
                 elements.pausedOverlay.classList.toggle('hidden', !isPaused);
             }
