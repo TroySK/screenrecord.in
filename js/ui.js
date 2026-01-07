@@ -985,9 +985,30 @@ export function setupEventListeners() {
                 elements.pausedOverlay.classList.add('hidden');
             }
             
-            // Show PiP info if camera enabled
-            if (AppConfig.config.camera && document.pictureInPictureEnabled) {
-                elements.pipInfo?.classList.remove('hidden');
+            // Automatically open Document Picture-in-Picture if supported
+            if (isDocumentPipSupported()) {
+                let stream = null;
+                
+                if (RecordingState.cameraVideo && RecordingState.cameraVideo.srcObject) {
+                    stream = RecordingState.cameraVideo.srcObject;
+                } else if (RecordingState.previewCanvas) {
+                    stream = RecordingState.previewCanvas.captureStream(30);
+                }
+                
+                if (stream) {
+                    // Open PiP automatically
+                    await openPipElement(stream);
+                    
+                    // Hide PiP info since PiP is now open
+                    if (elements.pipInfo) {
+                        elements.pipInfo.classList.add('hidden');
+                    }
+                }
+            } else {
+                // Show PiP info if camera enabled (fallback for native PiP)
+                if (AppConfig.config.camera && document.pictureInPictureEnabled) {
+                    elements.pipInfo?.classList.remove('hidden');
+                }
             }
         }
     });
