@@ -115,29 +115,22 @@
 ## Phase 3: Essential UX Improvements
 
 ### 3.1 Recording Experience
-- [ ] **Add live recording timer**
+- [x] **Add live recording timer**
   - Display current recording duration (MM:SS format)
   - Update every second using requestAnimationFrame
   - Show in both preview area and document title
   - Flash warning when approaching max duration
 
-- [ ] **Implement pause/resume functionality**
+- [x] **Implement pause/resume functionality**
   - Add pause button next to stop button
   - Maintain recording continuity (single file output)
   - Show paused state clearly with overlay
   - Persist pause state through tab visibility changes
 
-- [ ] **Add recording preview/test mode**
-  - "Test my setup" button that shows 5-second preview
-  - Verify camera, mic, and screen capture before full recording
-  - Show audio levels in real-time
-  - Allow configuration adjustments before recording
-
 - [ ] **Improve tab visibility handling**
   - Better Picture-in-Picture fallback for unsupported browsers
+  - Instead of just the video, create a div with recording controls and timer for PIP
   - Show persistent notification when tab is hidden
-  - Auto-pause recording (optional) when tab is hidden
-  - Add "keep recording" popup window option
 
 ### 3.2 Interface Enhancements
 - [ ] **Add keyboard shortcuts**

@@ -208,18 +208,41 @@ export function setupPageLifecycle() {
         }
     });
     
-    // Handle visibility change
+    // Handle visibility change - pause recording when tab is hidden
     document.addEventListener('visibilitychange', async () => {
-        if (document.hidden) {
-            // Save draft when tab becomes hidden
-            try {
-                const recording = await ModuleRegistry.loadRecording();
-                if (recording.RecordingState.isRecording) {
-                    recording.saveDraft();
+        try {
+            const recording = await ModuleRegistry.loadRecording();
+            const ui = await ModuleRegistry.loadUI();
+            
+            if (document.hidden) {
+                // Tab is hidden - pause recording if active
+                if (recording.RecordingState.isRecording && !recording.RecordingState.isPaused) {
+                    recording.togglePause();
+                    // Update UI to show paused state
+                    if (ui.elements.pauseBtn) {
+                        ui.elements.pauseBtn.textContent = '▶ Resume';
+                    }
+                    if (ui.elements.pausedOverlay) {
+                        ui.elements.pausedOverlay.classList.remove('hidden');
+                    }
                 }
-            } catch (err) {
-                // Ignore
+            } else {
+                // Tab is visible again - restore pause state timing
+                if (recording.RecordingState.isRecording) {
+                    recording.restorePauseState();
+                    // Ensure UI reflects current pause state
+                    if (recording.RecordingState.isPaused) {
+                        if (ui.elements.pauseBtn) {
+                            ui.elements.pauseBtn.textContent = '▶ Resume';
+                        }
+                        if (ui.elements.pausedOverlay) {
+                            ui.elements.pausedOverlay.classList.remove('hidden');
+                        }
+                    }
+                }
             }
+        } catch (err) {
+            // Ignore visibility change errors
         }
     });
 }

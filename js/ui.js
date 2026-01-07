@@ -18,6 +18,7 @@ export const elements = {
     systemAudioToggle: null,
     startBtn: null,
     stopBtn: null,
+    pauseBtn: null,
     previewArea: null,
     previewVideo: null,
     pipInfo: null,
@@ -41,7 +42,8 @@ export const elements = {
     cleanupSuggestions: null,
     errorNotifications: null,
     downloadLast: null,
-    recordingTimer: null
+    recordingTimer: null,
+    pausedOverlay: null
 };
 
 // ============================================
@@ -76,6 +78,7 @@ export function initElements() {
     elements.systemAudioToggle = document.getElementById('system-audio-toggle');
     elements.startBtn = document.getElementById('start-recording');
     elements.stopBtn = document.getElementById('stop-recording');
+    elements.pauseBtn = document.getElementById('pause-recording');
     elements.previewArea = document.getElementById('preview-area');
     elements.previewVideo = document.getElementById('preview-video');
     elements.pipInfo = document.getElementById('pip-info');
@@ -100,6 +103,7 @@ export function initElements() {
     elements.errorNotifications = document.getElementById('error-notifications');
     elements.downloadLast = document.getElementById('download-last');
     elements.recordingTimer = document.getElementById('recording-timer');
+    elements.pausedOverlay = document.getElementById('paused-overlay');
 }
 
 // ============================================
@@ -584,6 +588,8 @@ export function setupEventListeners() {
         const result = await startRecording(AppConfig.config, showToast);
         if (result) {
             elements.stopBtn.style.display = 'block';
+            elements.pauseBtn.style.display = 'block';
+            elements.pauseBtn.textContent = '⏸ Pause';
             elements.startBtn.disabled = true;
             updateToggles(true);
             
@@ -599,6 +605,11 @@ export function setupEventListeners() {
                 elements.recordingTimer.style.display = 'block';
             }
             
+            // Hide paused overlay
+            if (elements.pausedOverlay) {
+                elements.pausedOverlay.classList.add('hidden');
+            }
+            
             // Show PiP info if camera enabled
             if (AppConfig.config.camera && document.pictureInPictureEnabled) {
                 elements.pipInfo?.classList.remove('hidden');
@@ -607,6 +618,17 @@ export function setupEventListeners() {
     });
     
     elements.stopBtn?.addEventListener('click', () => stopRecording(showToast));
+    
+    elements.pauseBtn?.addEventListener('click', async () => {
+        const recording = await import('./recording.js');
+        const isPaused = recording.togglePause(showToast);
+        if (isPaused !== undefined) {
+            elements.pauseBtn.textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+            if (elements.pausedOverlay) {
+                elements.pausedOverlay.classList.toggle('hidden', !isPaused);
+            }
+        }
+    });
     
     // Sidebar
     elements.toggleSidebar?.addEventListener('click', () => {

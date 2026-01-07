@@ -25,16 +25,22 @@ export const RecordingState = {
     _cameraStream: null,
     _micStream: null,
     _isRecording: false,
+    _isPaused: false,
     _audioContext: null,
     _currentVideoId: null,
     _draftInterval: null,
     _recordingStartTime: null,
+    _pausedStartTime: null,
+    _totalPausedDuration: 0,
     _timerAnimationId: null,
     _originalTitle: document.title,
     
     // Getters/Setters
     get isRecording() { return this._isRecording; },
     set isRecording(value) { this._isRecording = Boolean(value); },
+    
+    get isPaused() { return this._isPaused; },
+    set isPaused(value) { this._isPaused = Boolean(value); },
     
     get recordedChunks() { return [...this._recordedChunks]; },
     set recordedChunks(chunks) { 
@@ -89,6 +95,12 @@ export const RecordingState = {
     get recordingStartTime() { return this._recordingStartTime; },
     set recordingStartTime(time) { this._recordingStartTime = time; },
     
+    get pausedStartTime() { return this._pausedStartTime; },
+    set pausedStartTime(time) { this._pausedStartTime = time; },
+    
+    get totalPausedDuration() { return this._totalPausedDuration; },
+    set totalPausedDuration(duration) { this._totalPausedDuration = duration; },
+    
     get timerAnimationId() { return this._timerAnimationId; },
     set timerAnimationId(id) { this._timerAnimationId = id; },
     
@@ -105,9 +117,12 @@ export const RecordingState = {
         this._cameraStream = null;
         this._micStream = null;
         this._isRecording = false;
+        this._isPaused = false;
         this._audioContext = null;
         this._currentVideoId = null;
         this._recordingStartTime = null;
+        this._pausedStartTime = null;
+        this._totalPausedDuration = 0;
         
         // Stop timer animation
         if (this._timerAnimationId) {
@@ -151,11 +166,14 @@ export function formatTimerDuration(seconds) {
 function updateRecordingTimer(showToast = null) {
     if (!RecordingState.isRecording || !RecordingState.recordingStartTime) return;
     
-    const elapsed = (Date.now() - RecordingState.recordingStartTime) / 1000;
+    // Calculate elapsed time, excluding paused duration
+    const currentTime = Date.now();
+    const elapsed = (currentTime - RecordingState.recordingStartTime - RecordingState.totalPausedDuration) / 1000;
     const formattedTime = formatTimerDuration(elapsed);
     
     // Update document title with timer
-    document.title = `● ${formattedTime} - ScreenRecord.in`;
+    const prefix = RecordingState.isPaused ? '⏸ ' : '● ';
+    document.title = `${prefix}${formattedTime} - ScreenRecord.in`;
     
     // Update timer display in preview area if it exists
     const timerElement = document.getElementById('recording-timer');
@@ -574,6 +592,7 @@ export async function stopRecording(showToast = null) {
     const { elements, updateToggles, AppConfig } = ui;
     
     RecordingState.isRecording = false;
+    RecordingState.isPaused = false;
     
     // Stop recording timer
     stopRecordingTimer();
@@ -693,6 +712,87 @@ export async function stopRecording(showToast = null) {
 }
 
 // ============================================
+// PAUSE/RESUME FUNCTIONALITY
+// ============================================
+
+/**
+ * Toggle pause state of the recording
+ * @param {Function} showToast - Optional toast notification function
+ * @returns {boolean|null} - Returns true if paused, false if resumed, null if error
+ */
+export function togglePause(showToast = null) {
+    if (!RecordingState.isRecording || !RecordingState.mediaRecorder) {
+        return null;
+    }
+    
+    try {
+        const recorderState = RecordingState.mediaRecorder.state;
+        
+        if (RecordingState.isPaused || recorderState === 'paused') {
+            // Resume recording
+            if (recorderState === 'paused') {
+                RecordingState.mediaRecorder.resume();
+            }
+            
+            // Calculate and add the paused duration
+            if (RecordingState.pausedStartTime) {
+                RecordingState.totalPausedDuration += Date.now() - RecordingState.pausedStartTime;
+                RecordingState.pausedStartTime = null;
+            }
+            
+            RecordingState.isPaused = false;
+            
+            // Resume canvas drawing if using canvas recording
+            if (RecordingState.screenVideo && RecordingState.cameraVideo) {
+                if (RecordingState.screenVideo.paused) {
+                    RecordingState.screenVideo.play().catch(console.error);
+                }
+                if (RecordingState.cameraVideo.paused) {
+                    RecordingState.cameraVideo.play().catch(console.error);
+                }
+            }
+            
+            if (showToast) showToast('Recording resumed', 'info');
+            return false;
+        } else {
+            // Pause recording
+            if (recorderState === 'recording') {
+                RecordingState.mediaRecorder.pause();
+            }
+            
+            RecordingState.isPaused = true;
+            RecordingState.pausedStartTime = Date.now();
+            
+            // Pause canvas drawing if using canvas recording
+            if (RecordingState.screenVideo) {
+                RecordingState.screenVideo.pause();
+            }
+            if (RecordingState.cameraVideo) {
+                RecordingState.cameraVideo.pause();
+            }
+            
+            if (showToast) showToast('Recording paused', 'info');
+            return true;
+        }
+    } catch (err) {
+        ErrorHandler.handle(err, `Pause/resume error: ${err.message}`, showToast);
+        return null;
+    }
+}
+
+/**
+ * Check and restore pause state from tab visibility changes
+ * Called when tab becomes visible again
+ */
+export function restorePauseState() {
+    if (RecordingState.isRecording && RecordingState.isPaused && RecordingState.pausedStartTime) {
+        // Calculate total paused duration so far
+        RecordingState.totalPausedDuration += Date.now() - RecordingState.pausedStartTime;
+        RecordingState.pausedStartTime = Date.now();
+    }
+}
+
+// ============================================
 // DRAFT MANAGEMENT
 // ============================================
 
@@ -700,7 +800,10 @@ export function saveDraft() {
     if (RecordingState.recordedChunks.length > 0) {
         const draft = {
             chunks: RecordingState.recordedChunks.slice(),
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isPaused: RecordingState.isPaused,
+            pausedStartTime: RecordingState.pausedStartTime,
+            totalPausedDuration: RecordingState.totalPausedDuration
         };
         try {
             sessionStorage.setItem(`${STORAGE_KEY}_draft`, JSON.stringify(draft));
@@ -717,6 +820,16 @@ export async function recoverDraft() {
         if (draftData) {
             const draft = JSON.parse(draftData);
             if (Date.now() - draft.timestamp < CONFIG.DRAFT_MAX_AGE) {
+                // Restore pause state
+                if (draft.isPaused) {
+                    RecordingState.isPaused = true;
+                    RecordingState.totalPausedDuration = draft.totalPausedDuration || 0;
+                    // Calculate ongoing pause duration
+                    if (draft.pausedStartTime) {
+                        RecordingState.totalPausedDuration += Date.now() - draft.pausedStartTime;
+                        RecordingState.pausedStartTime = Date.now();
+                    }
+                }
                 return draft;
             }
         }

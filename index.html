@@ -34,7 +34,13 @@
         <section id="preview-area" class="hidden">
             <video id="preview-video" autoplay muted playsinline></video>
             <div id="recording-timer" class="recording-timer">00:00</div>
-            <button id="stop-recording" class="prominent" style="display: none;">Stop Recording</button>
+            <div id="paused-overlay" class="paused-overlay hidden">
+                <span class="paused-text">⏸ PAUSED</span>
+            </div>
+            <div id="recording-controls-overlay">
+                <button id="pause-recording" class="prominent" style="display: none;">⏸ Pause</button>
+                <button id="stop-recording" class="prominent" style="display: none;">⏹ Stop</button>
+            </div>
         </section>
 
         <section id="error-notifications"></section>
