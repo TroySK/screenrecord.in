@@ -512,6 +512,11 @@ async function handlePipPause() {
 function handlePipStop() {
     stopRecording(showToast);
     closePipElement();
+    
+    // Focus on the main app window
+    if (window.focus) {
+        window.focus();
+    }
 }
 
 /**
