@@ -1824,14 +1824,14 @@ function setupNamingPatternModal() {
     });
     
     // Close button
-    const closeBtn = namingPatternModal.querySelector('.naming-pattern-modal-close');
+    const closeBtn = namingPatternModal.querySelector('.modal-close');
     closeBtn?.addEventListener('click', () => {
         namingPatternModal.classList.add('hidden');
     });
     
     // Close on backdrop click
     namingPatternModal.addEventListener('click', (e) => {
-        if (e.target === namingPatternModal) {
+        if (e.target === namingPatternModal || e.target.classList.contains('modal-backdrop')) {
             namingPatternModal.classList.add('hidden');
         }
     });
