@@ -185,7 +185,7 @@ export async function clearAllVideos() {
  * @param {Object} options - Options for filename generation
  * @returns {Promise<string|null>} - User-edited filename or null if cancelled
  */
-export async function showFilenameEditModal(options) {
+export async function showFilenameEditModal(options, onSave = null) {
     return new Promise((resolve) => {
         const modal = document.getElementById('filename-modal');
         const input = document.getElementById('filename-input');
@@ -229,6 +229,10 @@ export async function showFilenameEditModal(options) {
         const handleSave = () => {
             cleanup();
             const filename = input.value.trim() || initialFilename;
+            // Call onSave callback if provided
+            if (onSave && typeof onSave === 'function') {
+                onSave(filename);
+            }
             resolve(filename);
         };
         
@@ -260,7 +264,7 @@ export async function showFilenameEditModal(options) {
     });
 }
 
-export async function saveRecording(chunks, config, showToast = null) {
+export async function saveRecording(chunks, config, showToast = null, onAfterSave = null) {
     if (!chunks || chunks.length === 0) {
         // Silent return for empty recordings - not an error, just nothing to save
         return null;
@@ -351,6 +355,10 @@ export async function saveRecording(chunks, config, showToast = null) {
     try {
         await addVideo(videoObj);
         if (showToast) showToast('Recording saved!', 'success');
+        // Call onAfterSave callback if provided
+        if (onAfterSave && typeof onAfterSave === 'function') {
+            onAfterSave(videoObj.id);
+        }
         return { ...videoObj, saved: true };
     } catch (err) {
         console.error('Failed to save recording:', err);

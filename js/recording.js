@@ -807,14 +807,9 @@ export async function stopRecording(showToast = null) {
     
     // Save recording - get config from AppConfig
     const config = AppConfig?.config || {};
-    const result = await saveRecording(RecordingState.recordedChunks, config, showToast);
     
-    if (result && !result.saved && result.blob) {
-        downloadVideo(result.blob, result.filename, showToast);
-    }
-    
-    // Refresh the saved list UI
-    if (result?.saved) {
+    // Callback to open video player after save
+    const onAfterSave = async (videoId) => {
         const uiModule = await import('./ui.js');
         if (uiModule.populateSavedList) {
             await uiModule.populateSavedList();
@@ -822,6 +817,16 @@ export async function stopRecording(showToast = null) {
         if (uiModule.updateStorageInfo) {
             await uiModule.updateStorageInfo();
         }
+        // Open the video player modal
+        if (uiModule.playVideo && videoId) {
+            uiModule.playVideo(videoId);
+        }
+    };
+    
+    const result = await saveRecording(RecordingState.recordedChunks, config, showToast, onAfterSave);
+    
+    if (result && !result.saved && result.blob) {
+        downloadVideo(result.blob, result.filename, showToast);
     }
     
     RecordingState.clearRecordedChunks();

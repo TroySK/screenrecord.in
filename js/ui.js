@@ -1886,14 +1886,19 @@ async function saveCurrentRecording() {
     try {
         const { saveRecording } = await import('./storage.js');
         const config = AppConfig?.config || {};
-        const result = await saveRecording(RecordingState.recordedChunks, config, showToast);
         
-        if (result && result.saved) {
+        // Callback to open video player after save
+        const onAfterSave = async (videoId) => {
             showToast('Recording saved!', 'success');
-            // Refresh the saved list UI
             await populateSavedList();
             await updateStorageInfo();
-        } else if (result && result.cancelled) {
+            // Open the video player modal with the saved video
+            playVideo(videoId);
+        };
+        
+        const result = await saveRecording(RecordingState.recordedChunks, config, showToast, onAfterSave);
+        
+        if (result && result.cancelled) {
             // User cancelled the save, do nothing
         }
     } catch (err) {
