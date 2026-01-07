@@ -2458,15 +2458,40 @@ img, video {
 }
 
 /* ==========================================================================
-   Print Styles
-   ========================================================================== */
+    Footer - Style
+    ========================================================================== */
+
+.app-footer {
+    text-align: center;
+    padding: var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-light);
+    margin-top: auto;
+}
+
+.app-footer a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: var(--font-medium);
+    transition: color var(--transition-fast);
+}
+
+.app-footer a:hover {
+    color: var(--primary-hover);
+}
+
+/* ==========================================================================
+    Print Styles
+    ========================================================================== */
 
 @media print {
     .app-header,
     #sidebar,
     .storage-pie,
     .shortcuts-info-btn,
-    .command-menu {
+    .command-menu,
+    .app-footer {
         display: none !important;
     }
 
