@@ -171,7 +171,13 @@ export class CommandMenu {
     handleSavedRecordings() {
         this.close();
         const sidebar = document.getElementById('sidebar');
-        sidebar?.classList.add('open');
+        if (sidebar) {
+            // Reset right to trigger slide-in animation
+            sidebar.style.right = '0';
+            // Force reflow to ensure transition triggers
+            void sidebar.offsetWidth;
+            sidebar.classList.add('open');
+        }
     }
     
     handleNamingPattern() {
@@ -1343,6 +1349,8 @@ export function setupEventListeners() {
     
     elements.closeSidebar?.addEventListener('click', () => {
         elements.sidebar?.classList.remove('open');
+        // Remove inline right style to let default CSS take over
+        elements.sidebar?.style.removeProperty('right');
     });
     
     // Close sidebar on outside click
