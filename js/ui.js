@@ -741,7 +741,7 @@ export function initElements() {
     elements.newRecording = document.getElementById('new-recording');
     elements.modal = document.getElementById('modal-player');
     elements.modalVideo = document.getElementById('modal-video');
-    elements.closeModal = document.querySelector('.close');
+    elements.closeModal = document.querySelector('.modal-close');
     elements.closeSidebar = document.getElementById('close-sidebar');
     elements.storageInfo = document.getElementById('storage-info');
     elements.storageProgressBar = document.getElementById('storage-progress-bar');
@@ -1266,6 +1266,17 @@ export async function loadMoreRecordings() {
 // VIDEO PLAYBACK
 // ============================================
 
+/**
+ * Close the video modal and stop playback
+ */
+export function closeModal() {
+    if (elements.modalVideo) {
+        elements.modalVideo.pause();
+        elements.modalVideo.currentTime = 0;
+    }
+    elements.modal?.classList.add('hidden');
+}
+
 export async function playVideo(id) {
     if (!elements.modal || !elements.modalVideo) return;
     
@@ -1544,12 +1555,21 @@ export function setupEventListeners() {
     
     // Close modal
     elements.closeModal?.addEventListener('click', () => {
-        // Stop video playback when closing modal
-        if (elements.modalVideo) {
-            elements.modalVideo.pause();
-            elements.modalVideo.currentTime = 0;
+        closeModal();
+    });
+    
+    // Close modal when clicking on backdrop
+    elements.modal?.addEventListener('click', (e) => {
+        if (e.target === elements.modal || e.target.classList.contains('modal-backdrop')) {
+            closeModal();
         }
-        elements.modal?.classList.add('hidden');
+    });
+    
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && elements.modal && !elements.modal.classList.contains('hidden')) {
+            closeModal();
+        }
     });
     
     // Download last button removed - no longer needed
