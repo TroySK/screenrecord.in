@@ -147,18 +147,12 @@
   - Remember last used naming pattern
 
 ### 3.3 Mobile Experience
-- [ ] **Optimize for mobile devices**
+- [x] **Optimize for mobile devices**
   - Hide screen sharing toggle on mobile (unsupported)
   - Increase touch targets to minimum 44px
   - Add landscape orientation handling
   - Simplify UI for small screens (collapsible sections)
   - Test on iOS Safari and Chrome Android
-
-- [ ] **Add responsive recording controls**
-  - Full-width buttons on mobile
-  - Collapsible configuration panel
-  - Swipe gestures for navigation
-  - Touch-friendly slider controls for camera overlay size
 
 ---
 

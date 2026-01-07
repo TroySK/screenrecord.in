@@ -510,6 +510,66 @@ export async function startRecording(config, showToast = null) {
             RecordingState.previewCanvas.style.height = 'auto';
             RecordingState.previewCanvas.style.borderRadius = '10px';
             RecordingState.previewCanvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+        } else if (config.camera && !config.screen) {
+            // Camera only mode - set up preview video element
+            const cameraTrack = RecordingState.mediaStream.getVideoTracks()[0];
+            const cameraSettings = cameraTrack.getSettings();
+            
+            RecordingState.cameraVideo = document.createElement('video');
+            RecordingState.cameraVideo.muted = true;
+            
+            const cameraPromise = new Promise((resolve) => {
+                RecordingState.cameraVideo.onloadeddata = () => {
+                    RecordingState.cameraVideo.play().then(() => resolve()).catch(console.error);
+                };
+            });
+            
+            RecordingState.cameraVideo.srcObject = new MediaStream([cameraTrack]);
+            
+            await cameraPromise;
+            
+            // Create a canvas for the preview to match screen+camera behavior
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx) {
+                canvas.width = cameraSettings.width || CONFIG.DEFAULT_VIDEO_WIDTH;
+                canvas.height = cameraSettings.height || CONFIG.DEFAULT_VIDEO_HEIGHT;
+                RecordingState.recordingCanvas = canvas;
+                
+                const draw = () => {
+                    PerformanceMonitor.frame();
+                    
+                    if (RecordingState.cameraVideo.paused && RecordingState.cameraVideo.srcObject) {
+                        RecordingState.cameraVideo.play().catch(console.error);
+                    }
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    if (RecordingState.cameraVideo.readyState >= 2) {
+                        ctx.drawImage(RecordingState.cameraVideo, 0, 0, canvas.width, canvas.height);
+                    }
+                    
+                    RecordingState.animationId = requestAnimationFrame(draw);
+                };
+                
+                draw();
+                recordingStream = canvas.captureStream(CONFIG.RECORDING_FPS);
+                
+                const audioTracks = RecordingState.mediaStream.getAudioTracks();
+                audioTracks.forEach(track => recordingStream.addTrack(track));
+                
+                RecordingState.previewCanvas = canvas;
+                RecordingState.previewCanvas.style.display = 'block';
+                RecordingState.previewCanvas.style.width = '100%';
+                RecordingState.previewCanvas.style.maxWidth = '800px';
+                RecordingState.previewCanvas.style.height = 'auto';
+                RecordingState.previewCanvas.style.borderRadius = '10px';
+                RecordingState.previewCanvas.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+            } else {
+                // Fallback to simple video element preview
+                return startSimpleRecording(config, showToast);
+            }
         }
         
         return startMediaRecorder(recordingStream, config, showToast);
