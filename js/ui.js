@@ -52,7 +52,6 @@ export class CommandMenu {
         // Click on items
         this.items.forEach((item, index) => {
             item.addEventListener('click', () => this.select(index));
-            item.addEventListener('mouseenter', () => this.select(index));
         });
         
         // Search functionality
