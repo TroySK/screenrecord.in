@@ -678,6 +678,44 @@ export const PaginationState = {
     }
 };
 
+// ============================================
+// FILTER STATE
+// ============================================
+
+export const FilterState = {
+    searchQuery: '',
+    activeFilter: 'all',
+    
+    reset() {
+        this.searchQuery = '';
+        this.activeFilter = 'all';
+    },
+    
+    matches(video) {
+        // Check filter type
+        if (this.activeFilter !== 'all') {
+            const config = video.config || {};
+            if (this.activeFilter === 'screen' && !config.screen) {
+                return false;
+            }
+            if (this.activeFilter === 'camera' && !config.camera) {
+                return false;
+            }
+        }
+        
+        // Check search query
+        if (this.searchQuery) {
+            const query = this.searchQuery.toLowerCase().trim();
+            const title = (video.title || '').toLowerCase();
+            const date = formatDate(video.date).toLowerCase();
+            
+            return title.includes(query) || date.includes(query);
+        }
+        
+        return true;
+    }
+};
+
 // Initialize element references
 export function initElements() {
     elements.screenToggle = document.getElementById('screen-toggle');
@@ -1116,7 +1154,7 @@ function updateLoadMoreButton() {
 }
 
 /**
- * Populate saved recordings list with pagination
+ * Populate saved recordings list with pagination and filtering
  * @param {boolean} append - Whether to append to existing list (for load more)
  */
 export async function populateSavedList(append = false) {
@@ -1144,21 +1182,36 @@ export async function populateSavedList(append = false) {
         
         updateSavedListHeader();
         
-        if (PaginationState.allVideos.length === 0) {
+        // Filter videos based on search and filter state
+        const filteredVideos = PaginationState.allVideos.filter(video => FilterState.matches(video));
+        
+        if (filteredVideos.length === 0) {
             const emptyMsg = createElement('p', {
                 className: 'empty-state',
-                textContent: CONFIG.EMPTY_RECORDINGS_MESSAGE
+                textContent: FilterState.searchQuery || FilterState.activeFilter !== 'all'
+                    ? 'No recordings match your search or filter.'
+                    : CONFIG.EMPTY_RECORDINGS_MESSAGE
             });
             elements.savedList.appendChild(emptyMsg);
             updateLoadMoreButton();
             return;
         }
         
-        // Add new videos to the list
-        result.videos.forEach(video => {
-            const card = createVideoCard(video);
-            elements.savedList.appendChild(card);
-        });
+        // Clear and re-render all filtered videos (not just new ones)
+        if (!append) {
+            elements.savedList.innerHTML = '';
+            filteredVideos.forEach(video => {
+                const card = createVideoCard(video);
+                elements.savedList.appendChild(card);
+            });
+        } else {
+            // For load more, only add new videos that match filters
+            const newVideos = result.videos.filter(video => FilterState.matches(video));
+            newVideos.forEach(video => {
+                const card = createVideoCard(video);
+                elements.savedList.appendChild(card);
+            });
+        }
         
         updateLoadMoreButton();
     } catch (err) {
@@ -1166,6 +1219,93 @@ export async function populateSavedList(append = false) {
         if (!append) {
             elements.savedList.innerHTML = '';
         }
+        const errorMsg = createElement('p', {
+            className: 'empty-state',
+            textContent: CONFIG.ERROR_LOADING_MESSAGE
+        });
+        elements.savedList.appendChild(errorMsg);
+    }
+}
+
+/**
+ * Apply search filter to recordings
+ * @param {string} query - Search query
+ */
+export function applySearch(query) {
+    FilterState.searchQuery = query;
+    // When searching, load all videos at once for better filtering
+    if (query.trim()) {
+        loadAllVideosForFilter();
+    } else {
+        populateSavedList(false);
+    }
+}
+
+/**
+ * Apply type filter to recordings
+ * @param {string} filter - Filter type ('all', 'screen', 'camera')
+ */
+export function applyFilter(filter) {
+    FilterState.activeFilter = filter;
+    
+    // Update active button state
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    
+    // When filtering, load all videos at once for better filtering
+    if (filter !== 'all') {
+        loadAllVideosForFilter();
+    } else {
+        populateSavedList(false);
+    }
+}
+
+/**
+ * Load all videos for filtering/searching purposes
+ * This bypasses pagination to get all records for accurate filtering
+ */
+async function loadAllVideosForFilter() {
+    if (!elements.savedList) return;
+    
+    try {
+        // Get all videos at once
+        const allVideos = await getAllVideos();
+        
+        // Update pagination state with all videos
+        PaginationState.allVideos = allVideos;
+        PaginationState.totalCount = allVideos.length;
+        PaginationState.hasMore = false;
+        
+        // Update UI
+        elements.savedList.innerHTML = '';
+        updateSavedListHeader();
+        
+        // Filter videos based on search and filter state
+        const filteredVideos = allVideos.filter(video => FilterState.matches(video));
+        
+        if (filteredVideos.length === 0) {
+            const emptyMsg = createElement('p', {
+                className: 'empty-state',
+                textContent: FilterState.searchQuery || FilterState.activeFilter !== 'all'
+                    ? 'No recordings match your search or filter.'
+                    : CONFIG.EMPTY_RECORDINGS_MESSAGE
+            });
+            elements.savedList.appendChild(emptyMsg);
+        } else {
+            // Render all filtered videos
+            filteredVideos.forEach(video => {
+                const card = createVideoCard(video);
+                elements.savedList.appendChild(card);
+            });
+        }
+        
+        // Hide load more button when showing filtered results
+        if (elements.loadMoreBtn) {
+            elements.loadMoreBtn.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Error loading all videos for filter:', err);
         const errorMsg = createElement('p', {
             className: 'empty-state',
             textContent: CONFIG.ERROR_LOADING_MESSAGE
@@ -1493,6 +1633,19 @@ export function setupEventListeners() {
     
     // Global keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
+    
+    // Search input handler
+    const searchInput = document.getElementById('search-recordings');
+    searchInput?.addEventListener('input', (e) => {
+        applySearch(e.target.value);
+    });
+    
+    // Filter button handlers
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            applyFilter(btn.dataset.filter);
+        });
+    });
 }
 
 // ============================================
