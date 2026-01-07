@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
     CAMERA_WIDTH: 1280,
     CAMERA_HEIGHT: 720,
     RECORDING_FPS: 30,
-    VIDEO_MIME_TYPE: 'video/webm;codecs=vp9',
+    VIDEO_MIME_TYPE: 'video/mp4',
     
     // Resolution options (for quality settings UI)
     RESOLUTION_OPTIONS: [

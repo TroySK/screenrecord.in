@@ -419,7 +419,26 @@ async function startSimpleRecording(config, showToast = null) {
 
 async function startMediaRecorder(stream, config, showToast = null) {
     RecordingState.clearRecordedChunks();
-    RecordingState.mediaRecorder = new MediaRecorder(stream, { mimeType: CONFIG.VIDEO_MIME_TYPE });
+    
+    // Determine the best supported MIME type for recording
+    let mimeType = CONFIG.VIDEO_MIME_TYPE;
+    const supportedTypes = [
+        'video/mp4',
+        'video/webm;codecs=h264',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+    ];
+    
+    // Find the first supported MIME type
+    for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+            mimeType = type;
+            break;
+        }
+    }
+    
+    RecordingState.mediaRecorder = new MediaRecorder(stream, { mimeType });
     
     RecordingState.mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) RecordingState.addRecordedChunk(e.data);

@@ -186,21 +186,21 @@ export async function saveRecording(chunks, config, showToast = null) {
         return null;
     }
     
-    const videoBlob = new Blob(chunks, { type: 'video/webm' });
+    const videoBlob = new Blob(chunks, { type: 'video/mp4' });
     const size = videoBlob.size;
     
     // Check size limit using validation module
     const sizeValidation = StorageValidator.validateFileSize({ size }, CONFIG.MAX_FILE_SIZE);
     if (!sizeValidation.isValid) {
         ErrorHandler.handleStorageFull(showToast);
-        return { blob: videoBlob, filename: 'recording.webm', saved: false };
+        return { blob: videoBlob, filename: 'recording.mp4', saved: false };
     }
     
     // Check storage quota before saving
     const quotaValidation = await StorageValidator.checkStorageQuota(size);
     if (!quotaValidation.isValid) {
         if (showToast) showToast(quotaValidation.firstError, 'error');
-        return { blob: videoBlob, filename: 'recording.webm', saved: false };
+        return { blob: videoBlob, filename: 'recording.mp4', saved: false };
     }
     
     // Generate thumbnail with longer timeout
@@ -261,7 +261,7 @@ export async function saveRecording(chunks, config, showToast = null) {
     } catch (err) {
         console.error('Failed to save recording:', err);
         ErrorHandler.handleSaveFailed(showToast);
-        return { blob: videoBlob, filename: 'recording.webm', saved: false };
+        return { blob: videoBlob, filename: 'recording.mp4', saved: false };
     }
 }
 
@@ -283,7 +283,7 @@ export async function downloadSaved(id, showToast = null) {
         if (video && video.videoBlob) {
             const { generateSafeFilename } = await import('./utils.js');
             const safeTitle = generateSafeFilename(video.title);
-            await downloadVideo(video.videoBlob, `${safeTitle}.webm`, showToast);
+            await downloadVideo(video.videoBlob, `${safeTitle}.mp4`, showToast);
         }
     } catch (err) {
         ErrorHandler.handle(err, 'Failed to download video.', showToast);
