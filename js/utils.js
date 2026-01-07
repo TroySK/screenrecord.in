@@ -735,6 +735,193 @@ export function formatDate(dateString) {
     return new Date(dateString).toLocaleString();
 }
 
+// ============================================
+// SMART FILE NAMING
+// ============================================
+
+// Naming pattern tokens
+const NAMING_TOKENS = {
+    '{date}': 'Date (YYYY-MM-DD)',
+    '{time}': 'Time (HH-MM-SS)',
+    '{datetime}': 'Date and Time',
+    '{screen}': 'Screen',
+    '{camera}': 'Camera',
+    '{mic}': 'Microphone',
+    '{systemAudio}': 'System Audio',
+    '{duration}': 'Duration (e.g., 3m 42s)',
+    '{counter}': 'Counter (1, 2, 3...)'
+};
+
+// Available naming patterns
+export const NAMING_PATTERNS = {
+    DETAILED: '{screen}{camera} - {duration} - {date} {time}',
+    SIMPLE: '{date} - {duration}',
+    MINIMAL: 'Recording {datetime}',
+    CUSTOM: null
+};
+
+// Default pattern
+const DEFAULT_NAMING_PATTERN = NAMING_PATTERNS.DETAILED;
+
+// Storage key for naming pattern
+const NAMING_PATTERN_KEY = 'screenrecord_naming_pattern';
+
+/**
+ * Get the current naming pattern from storage
+ * @returns {string} Current naming pattern
+ */
+export function getNamingPattern() {
+    try {
+        const stored = localStorage.getItem(NAMING_PATTERN_KEY);
+        if (stored) {
+            return stored;
+        }
+    } catch (e) {
+        console.warn('Failed to get naming pattern:', e);
+    }
+    return DEFAULT_NAMING_PATTERN;
+}
+
+/**
+ * Save naming pattern to storage
+ * @param {string} pattern - Naming pattern to save
+ */
+export function saveNamingPattern(pattern) {
+    try {
+        localStorage.setItem(NAMING_PATTERN_KEY, pattern);
+    } catch (e) {
+        console.warn('Failed to save naming pattern:', e);
+    }
+}
+
+/**
+ * Get available naming pattern options
+ * @returns {Array} Array of pattern options
+ */
+export function getNamingPatternOptions() {
+    return [
+        { value: NAMING_PATTERNS.DETAILED, label: 'Detailed', example: 'Screen+Camera - 3m 42s - 2024-01-15 14-30-00' },
+        { value: NAMING_PATTERNS.SIMPLE, label: 'Simple', example: '2024-01-15 - 3m 42s' },
+        { value: NAMING_PATTERNS.MINIMAL, label: 'Minimal', example: 'Recording 2024-01-15 14:30:00' },
+        { value: NAMING_PATTERNS.CUSTOM, label: 'Custom', example: '(Edit pattern below)' }
+    ];
+}
+
+/**
+ * Get available tokens for custom patterns
+ * @returns {Array} Array of token options
+ */
+export function getNamingTokens() {
+    return Object.entries(NAMING_TOKENS).map(([token, description]) => ({
+        token,
+        description
+    }));
+}
+
+/**
+ * Format duration in human-readable format
+ * @param {number} seconds - Duration in seconds
+ * @returns {string} Formatted duration (e.g., "3m 42s")
+ */
+export function formatDurationSmart(seconds) {
+    if (!seconds || seconds < 0) return '0s';
+    
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    const parts = [];
+    if (hrs > 0) parts.push(`${hrs}h`);
+    if (mins > 0) parts.push(`${mins}m`);
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+    
+    return parts.join(' ');
+}
+
+/**
+ * Generate a smart filename based on configuration and pattern
+ * @param {Object} options - Options for filename generation
+ * @param {Object} options.config - Recording configuration (screen, camera, mic, systemAudio)
+ * @param {number} options.duration - Recording duration in seconds
+ * @param {number} options.counter - Optional counter for duplicate prevention
+ * @param {string} options.pattern - Optional custom pattern (uses default if not provided)
+ * @returns {string} Generated filename (without extension)
+ */
+export function generateSmartFilename(options = {}) {
+    const { config = {}, duration = 0, counter = null, pattern = null } = options;
+    
+    const activePattern = pattern || getNamingPattern();
+    
+    // Get date/time components
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    // Build source parts based on config
+    const sources = [];
+    if (config.screen) sources.push('Screen');
+    if (config.camera) sources.push('Camera');
+    if (config.mic) sources.push('Mic');
+    if (config.systemAudio) sources.push('SystemAudio');
+    
+    const sourceStr = sources.join('+');
+    
+    // Format duration
+    const durationStr = formatDurationSmart(duration);
+    
+    // Build replacements map
+    const replacements = {
+        '{date}': `${year}-${month}-${day}`,
+        '{time}': `${hours}-${minutes}-${seconds}`,
+        '{datetime}': `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`,
+        '{screen}': config.screen ? 'Screen' : '',
+        '{camera}': config.camera ? 'Camera' : '',
+        '{mic}': config.mic ? 'Mic' : '',
+        '{systemAudio}': config.systemAudio ? 'SystemAudio' : '',
+        '{duration}': durationStr,
+        '{counter}': counter !== null ? String(counter) : ''
+    };
+    
+    // Generate filename
+    let filename = activePattern;
+    
+    // Replace tokens
+    Object.entries(replacements).forEach(([token, value]) => {
+        filename = filename.replace(new RegExp(token.replace(/[{}]/g, '\\$&'), 'g'), value);
+    });
+    
+    // Clean up: remove consecutive spaces and trim
+    filename = filename.replace(/\s+/g, ' ').trim();
+    
+    // Remove empty parts (e.g., " - " when no sources)
+    filename = filename.replace(/\s*-\s*/g, '-').replace(/^-+|-+$/g, '');
+    
+    // Ensure filename is not empty
+    if (!filename || filename === '-') {
+        filename = `Recording ${replacements['{date}']} ${replacements['{time}']}`;
+    }
+    
+    return filename;
+}
+
+/**
+ * Generate a unique filename with timestamp suffix if needed
+ * @param {Object} options - Options for filename generation
+ * @returns {string} Unique filename (without extension)
+ */
+export function generateUniqueFilename(options = {}) {
+    const filename = generateSmartFilename(options);
+    
+    // Add timestamp suffix to prevent duplicates
+    const timestamp = Date.now().toString(36).toUpperCase();
+    
+    return `${filename} [${timestamp}]`;
+}
+
 export function generateVideoTitle() {
     return `Recording ${new Date().toLocaleString()}`;
 }

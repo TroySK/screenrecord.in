@@ -51,6 +51,21 @@ header button:hover {
     background: rgba(255,255,255,0.3);
 }
 
+#naming-pattern-settings {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    font-size: 1.2rem;
+}
+
+#naming-pattern-settings:hover {
+    background: rgba(255,255,255,0.3);
+}
+
 /* Main content */
 #main-content {
     display: flex;
@@ -1105,5 +1120,258 @@ footer {
         width: 100%;
         padding-left: 70px;
         font-size: 0.85rem;
+    }
+}
+
+/* ============================================
+    FILENAME EDIT MODAL STYLES
+    ============================================ */
+
+.filename-modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.filename-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 1.8rem;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s;
+}
+
+.filename-modal-close:hover {
+    color: #333;
+}
+
+.filename-preview {
+    margin-bottom: 1rem;
+}
+
+.filename-preview label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.filename-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.filename-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.filename-preview-preview {
+    background: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.preview-label {
+    font-weight: 500;
+    color: #666;
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.filename-preview-text {
+    color: #333;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    word-break: break-all;
+}
+
+.filename-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #5a6fd6;
+}
+
+/* ============================================
+    NAMING PATTERN MODAL STYLES
+    ============================================ */
+
+.naming-pattern-modal-content {
+    max-width: 600px;
+    width: 90%;
+}
+
+.naming-pattern-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 1.8rem;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s;
+}
+
+.naming-pattern-modal-close:hover {
+    color: #333;
+}
+
+.naming-pattern-form {
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.naming-pattern-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: white;
+    cursor: pointer;
+}
+
+.naming-pattern-select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.naming-pattern-custom {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: 'Courier New', monospace;
+}
+
+.naming-pattern-custom:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.custom-pattern-group {
+    margin-top: 1rem;
+}
+
+.naming-tokens {
+    margin: 1rem 0;
+}
+
+.naming-tokens > label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.token-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.token {
+    background: #e3f2fd;
+    color: #1976D2;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.token:hover {
+    background: #bbdefb;
+}
+
+.pattern-preview {
+    background: #f8f9fa;
+    padding: 0.75rem;
+    border-radius: 8px;
+}
+
+.pattern-preview > label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.pattern-preview-text {
+    color: #333;
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    word-break: break-all;
+}
+
+.naming-pattern-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+@media (max-width: 480px) {
+    .filename-modal-content,
+    .naming-pattern-modal-content {
+        padding: 1.5rem;
+    }
+    
+    .filename-actions,
+    .naming-pattern-actions {
+        flex-direction: column;
+    }
+    
+    .btn-secondary,
+    .btn-primary {
+        width: 100%;
     }
 }

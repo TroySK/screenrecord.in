@@ -421,7 +421,20 @@ export const elements = {
     pausedOverlay: null,
     shortcutsInfoBtn: null,
     shortcutsModal: null,
-    shortcutsClose: null
+    shortcutsClose: null,
+    // Filename edit modal elements
+    filenameModal: null,
+    filenameInput: null,
+    filenamePreview: null,
+    filenameCancel: null,
+    filenameSave: null,
+    // Naming pattern modal elements
+    namingPatternModal: null,
+    namingPatternSelect: null,
+    namingPatternCustom: null,
+    namingPatternCancel: null,
+    namingPatternSave: null,
+    patternPreviewText: null
 };
 
 // ============================================
@@ -485,6 +498,19 @@ export function initElements() {
     elements.shortcutsInfoBtn = document.getElementById('shortcuts-info-btn');
     elements.shortcutsModal = document.getElementById('shortcuts-modal');
     elements.shortcutsClose = document.querySelector('.shortcuts-close');
+    // Filename edit modal elements
+    elements.filenameModal = document.getElementById('filename-modal');
+    elements.filenameInput = document.getElementById('filename-input');
+    elements.filenamePreview = document.getElementById('filename-preview-text');
+    elements.filenameCancel = document.getElementById('filename-cancel');
+    elements.filenameSave = document.getElementById('filename-save');
+    // Naming pattern modal elements
+    elements.namingPatternModal = document.getElementById('naming-pattern-modal');
+    elements.namingPatternSelect = document.getElementById('naming-pattern-select');
+    elements.namingPatternCustom = document.getElementById('naming-pattern-custom');
+    elements.namingPatternCancel = document.getElementById('naming-pattern-cancel');
+    elements.namingPatternSave = document.getElementById('naming-pattern-save');
+    elements.patternPreviewText = document.getElementById('pattern-preview-text');
 }
 
 // ============================================
@@ -1060,6 +1086,12 @@ export function setupEventListeners() {
         elements.configSummary.textContent = 'Select inputs to start';
     });
     
+    // Naming pattern settings
+    const namingPatternSettingsBtn = document.getElementById('naming-pattern-settings');
+    namingPatternSettingsBtn?.addEventListener('click', () => {
+        openNamingPatternModal();
+    });
+    
     // PiP button - use Document Picture-in-Picture API with custom controls
     elements.enablePipBtn?.addEventListener('click', async () => {
         if (isDocumentPipSupported()) {
@@ -1156,6 +1188,9 @@ export function setupEventListeners() {
             showToast('No recordings available.', 'error');
         }
     });
+    
+    // Naming pattern modal events
+    setupNamingPatternModal();
     
     // Keyboard shortcuts modal
     elements.shortcutsInfoBtn?.addEventListener('click', () => {
@@ -1335,9 +1370,162 @@ async function saveCurrentRecording() {
             // Refresh the saved list UI
             await populateSavedList();
             await updateStorageInfo();
+        } else if (result && result.cancelled) {
+            // User cancelled the save, do nothing
         }
     } catch (err) {
         console.error('Failed to save recording:', err);
         showToast('Failed to save recording.', 'error');
     }
+}
+
+// ============================================
+// NAMING PATTERN SETTINGS
+// ============================================
+
+/**
+ * Setup naming pattern modal event listeners
+ */
+function setupNamingPatternModal() {
+    const { namingPatternModal, namingPatternSelect, namingPatternCustom, namingPatternCancel, namingPatternSave, patternPreviewText } = elements;
+    
+    if (!namingPatternModal || !namingPatternSelect) return;
+    
+    // Update preview when pattern changes
+    const updatePreview = async () => {
+        const selected = namingPatternSelect.value;
+        let pattern = '';
+        
+        switch (selected) {
+            case 'detailed':
+                pattern = '{screen}{camera} - {duration} - {date} {time}';
+                namingPatternCustom?.parentElement.classList.add('hidden');
+                break;
+            case 'simple':
+                pattern = '{date} - {duration}';
+                namingPatternCustom?.parentElement.classList.add('hidden');
+                break;
+            case 'minimal':
+                pattern = 'Recording {datetime}';
+                namingPatternCustom?.parentElement.classList.add('hidden');
+                break;
+            case 'custom':
+                pattern = namingPatternCustom?.value || '{date} - {duration}';
+                namingPatternCustom?.parentElement.classList.remove('hidden');
+                break;
+        }
+        
+        if (patternPreviewText) {
+            const { generateSmartFilename } = await import('./utils.js');
+            const preview = generateSmartFilename({
+                config: { screen: true, camera: true, mic: false, systemAudio: false },
+                duration: 222, // 3m 42s
+                pattern
+            });
+            patternPreviewText.textContent = preview;
+        }
+    };
+    
+    namingPatternSelect.addEventListener('change', updatePreview);
+    namingPatternCustom?.addEventListener('input', updatePreview);
+    
+    // Token click to insert
+    namingPatternModal.querySelectorAll('.token').forEach(token => {
+        token.addEventListener('click', () => {
+            if (namingPatternSelect.value === 'custom') {
+                const tokenValue = token.dataset.token;
+                if (namingPatternCustom) {
+                    namingPatternCustom.value += tokenValue;
+                    updatePreview();
+                }
+            }
+        });
+    });
+    
+    // Save button
+    namingPatternSave?.addEventListener('click', async () => {
+        const { saveNamingPattern } = await import('./utils.js');
+        const selected = namingPatternSelect.value;
+        let pattern = '';
+        
+        switch (selected) {
+            case 'detailed':
+                pattern = '{screen}{camera} - {duration} - {date} {time}';
+                break;
+            case 'simple':
+                pattern = '{date} - {duration}';
+                break;
+            case 'minimal':
+                pattern = 'Recording {datetime}';
+                break;
+            case 'custom':
+                pattern = namingPatternCustom?.value || '{date} - {duration}';
+                break;
+        }
+        
+        saveNamingPattern(pattern);
+        namingPatternModal.classList.add('hidden');
+        showToast('Naming pattern saved!', 'success');
+    });
+    
+    // Cancel button
+    namingPatternCancel?.addEventListener('click', () => {
+        namingPatternModal.classList.add('hidden');
+    });
+    
+    // Close button
+    const closeBtn = namingPatternModal.querySelector('.naming-pattern-modal-close');
+    closeBtn?.addEventListener('click', () => {
+        namingPatternModal.classList.add('hidden');
+    });
+    
+    // Close on backdrop click
+    namingPatternModal.addEventListener('click', (e) => {
+        if (e.target === namingPatternModal) {
+            namingPatternModal.classList.add('hidden');
+        }
+    });
+}
+
+/**
+ * Open naming pattern settings modal
+ */
+export async function openNamingPatternModal() {
+    const { namingPatternModal, namingPatternSelect, namingPatternCustom, patternPreviewText } = elements;
+    
+    if (!namingPatternModal) return;
+    
+    // Load current pattern
+    const { getNamingPattern, generateSmartFilename } = await import('./utils.js');
+    const currentPattern = getNamingPattern();
+    
+    // Determine which option matches the current pattern
+    let selectedValue = 'custom';
+    namingPatternCustom?.parentElement.classList.add('hidden');
+    
+    if (currentPattern === '{screen}{camera} - {duration} - {date} {time}') {
+        selectedValue = 'detailed';
+    } else if (currentPattern === '{date} - {duration}') {
+        selectedValue = 'simple';
+    } else if (currentPattern === 'Recording {datetime}') {
+        selectedValue = 'minimal';
+    } else {
+        selectedValue = 'custom';
+        namingPatternCustom?.parentElement.classList.remove('hidden');
+        namingPatternCustom.value = currentPattern;
+    }
+    
+    namingPatternSelect.value = selectedValue;
+    
+    // Update preview
+    if (patternPreviewText) {
+        const preview = generateSmartFilename({
+            config: { screen: true, camera: true, mic: false, systemAudio: false },
+            duration: 222,
+            pattern: currentPattern
+        });
+        patternPreviewText.textContent = preview;
+    }
+    
+    namingPatternModal.classList.remove('hidden');
 }

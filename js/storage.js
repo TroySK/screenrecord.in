@@ -2,7 +2,7 @@
 // INDEXEDDB STORAGE MODULE
 // ============================================
 
-import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, CONFIG, StorageRetry, estimateStorageUsage } from './utils.js';
+import { ErrorHandler, generateThumbnail, formatFileSize, formatDate, generateVideoTitle, generateSmartFilename, generateUniqueFilename, CONFIG, StorageRetry, estimateStorageUsage } from './utils.js';
 import { StorageValidator, Validator } from './validation.js';
 
 // Database configuration - use CONFIG values
@@ -180,6 +180,86 @@ export async function clearAllVideos() {
 // VIDEO MANAGEMENT
 // ============================================
 
+/**
+ * Show filename edit modal and get user confirmation
+ * @param {Object} options - Options for filename generation
+ * @returns {Promise<string|null>} - User-edited filename or null if cancelled
+ */
+export async function showFilenameEditModal(options) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('filename-modal');
+        const input = document.getElementById('filename-input');
+        const preview = document.getElementById('filename-preview-text');
+        const saveBtn = document.getElementById('filename-save');
+        const cancelBtn = document.getElementById('filename-cancel');
+        const closeBtn = document.querySelector('.filename-modal-close');
+        
+        if (!modal || !input || !preview || !saveBtn || !cancelBtn) {
+            // Fallback if modal elements don't exist
+            resolve(generateUniqueFilename(options));
+            return;
+        }
+        
+        // Generate initial filename
+        const initialFilename = generateUniqueFilename(options);
+        input.value = initialFilename;
+        preview.textContent = `${initialFilename}.mp4`;
+        
+        // Update preview on input change
+        const updatePreview = () => {
+            const value = input.value.trim();
+            preview.textContent = value ? `${value}.mp4` : `${initialFilename}.mp4`;
+        };
+        
+        input.oninput = updatePreview;
+        
+        // Show modal
+        modal.classList.remove('hidden');
+        input.focus();
+        input.select();
+        
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            input.oninput = null;
+            saveBtn.onclick = null;
+            cancelBtn.onclick = null;
+            closeBtn.onclick = null;
+        };
+        
+        const handleSave = () => {
+            cleanup();
+            const filename = input.value.trim() || initialFilename;
+            resolve(filename);
+        };
+        
+        const handleCancel = () => {
+            cleanup();
+            resolve(null);
+        };
+        
+        saveBtn.onclick = handleSave;
+        cancelBtn.onclick = handleCancel;
+        closeBtn.onclick = handleCancel;
+        
+        // Handle Enter key
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSave();
+            } else if (e.key === 'Escape') {
+                handleCancel();
+            }
+        };
+        
+        // Close on backdrop click
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                handleCancel();
+            }
+        };
+    });
+}
+
 export async function saveRecording(chunks, config, showToast = null) {
     if (!chunks || chunks.length === 0) {
         // Silent return for empty recordings - not an error, just nothing to save
@@ -242,10 +322,24 @@ export async function saveRecording(chunks, config, showToast = null) {
     }
     URLManager.revoke(tempUrl);
     
+    // Show filename edit modal
+    const filenameOptions = {
+        config,
+        duration,
+        counter: null
+    };
+    
+    const editedFilename = await showFilenameEditModal(filenameOptions);
+    
+    if (editedFilename === null) {
+        // User cancelled
+        return { blob: videoBlob, filename: 'recording.mp4', saved: false, cancelled: true };
+    }
+    
     // Create video object - ensure thumbnail is a valid string
     const videoObj = {
         id: Date.now().toString(),
-        title: generateVideoTitle(),
+        title: editedFilename,
         date: new Date().toISOString(),
         thumbnail: typeof thumbnail === 'string' && thumbnail.length > 0 ? thumbnail : '',
         videoBlob,

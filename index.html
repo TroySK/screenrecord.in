@@ -12,6 +12,7 @@
         <p>Record your screen, camera, and audio – all local, no backend.</p>
         <button id="new-recording">New Recording</button>
         <button id="toggle-sidebar">📁 Saved</button>
+        <button id="naming-pattern-settings" title="Naming Pattern Settings">⚙️</button>
     </header>
 
     <main id="main-content">
@@ -107,6 +108,70 @@
                     <kbd>Ctrl</kbd> + <kbd>S</kbd>
                     <span class="shortcut-desc">Save Current Recording</span>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filename Edit Modal -->
+    <div id="filename-modal" class="modal hidden">
+        <div class="modal-content filename-modal-content">
+            <span class="filename-modal-close">&times;</span>
+            <h2>Save Recording</h2>
+            <div class="filename-preview">
+                <label for="filename-input">Filename:</label>
+                <input type="text" id="filename-input" class="filename-input" placeholder="Enter filename">
+            </div>
+            <div class="filename-preview-preview">
+                <span class="preview-label">Preview:</span>
+                <span id="filename-preview-text" class="filename-preview-text"></span>
+            </div>
+            <div class="filename-actions">
+                <button id="filename-cancel" class="btn-secondary">Cancel</button>
+                <button id="filename-save" class="btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Naming Pattern Settings Modal -->
+    <div id="naming-pattern-modal" class="modal hidden">
+        <div class="modal-content naming-pattern-modal-content">
+            <span class="naming-pattern-modal-close">&times;</span>
+            <h2>Naming Pattern Settings</h2>
+            <div class="naming-pattern-form">
+                <div class="form-group">
+                    <label for="naming-pattern-select">Pattern:</label>
+                    <select id="naming-pattern-select" class="naming-pattern-select">
+                        <option value="detailed">Detailed - {screen}{camera} - {duration} - {date} {time}</option>
+                        <option value="simple">Simple - {date} - {duration}</option>
+                        <option value="minimal">Minimal - Recording {datetime}</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group custom-pattern-group hidden">
+                    <label for="naming-pattern-custom">Custom Pattern:</label>
+                    <input type="text" id="naming-pattern-custom" class="naming-pattern-custom" placeholder="{date} - {duration}">
+                </div>
+                <div class="naming-tokens">
+                    <label>Available Tokens:</label>
+                    <div class="token-list">
+                        <span class="token" data-token="{date}">{date}</span>
+                        <span class="token" data-token="{time}">{time}</span>
+                        <span class="token" data-token="{datetime}">{datetime}</span>
+                        <span class="token" data-token="{screen}">{screen}</span>
+                        <span class="token" data-token="{camera}">{camera}</span>
+                        <span class="token" data-token="{mic}">{mic}</span>
+                        <span class="token" data-token="{systemAudio}">{systemAudio}</span>
+                        <span class="token" data-token="{duration}">{duration}</span>
+                    </div>
+                </div>
+                <div class="pattern-preview">
+                    <label>Preview:</label>
+                    <span id="pattern-preview-text" class="pattern-preview-text"></span>
+                </div>
+            </div>
+            <div class="naming-pattern-actions">
+                <button id="naming-pattern-cancel" class="btn-secondary">Cancel</button>
+                <button id="naming-pattern-save" class="btn-primary">Save</button>
             </div>
         </div>
     </div>

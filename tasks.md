@@ -133,30 +133,18 @@
   - Automatic PiP
 
 ### 3.2 Interface Enhancements
-- [ ] **Add keyboard shortcuts**
+- [x] **Add keyboard shortcuts**
   - `Ctrl/Cmd+Shift+R`: Start/stop recording
   - `Space`: Pause/resume (when recording)
   - `Escape`: Cancel/stop
   - `Ctrl/Cmd+S`: Save current recording
   - Show shortcut cheat sheet on clicking a small info icon in the bottom right corner
 
-- [ ] **Implement smart file naming**
+- [x] **Implement smart file naming**
   - Generate names based on configuration: "Screen+Camera - 3m 42s"
   - Allow user to edit name before saving
   - Add timestamp to prevent duplicates
   - Remember last used naming pattern
-
-- [ ] **Add search and filter to saved recordings**
-  - Search by title, date, duration
-  - Filter by: recording type, date range, size
-  - Sort by: newest, oldest, duration, size
-  - Clear all filters button
-
-- [ ] **Implement bulk operations**
-  - Checkbox selection for multiple recordings
-  - Bulk download (as ZIP)
-  - Bulk delete with confirmation
-  - Select all/none functionality
 
 ### 3.3 Mobile Experience
 - [ ] **Optimize for mobile devices**
