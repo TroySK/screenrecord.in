@@ -127,10 +127,10 @@
   - Show paused state clearly with overlay
   - Persist pause state through tab visibility changes
 
-- [ ] **Improve tab visibility handling**
+- [x] **Improve tab visibility handling**
   - Better Picture-in-Picture fallback for unsupported browsers
   - Instead of just the video, create a div with recording controls and timer for PIP
-  - Show persistent notification when tab is hidden
+  - Automatic PiP
 
 ### 3.2 Interface Enhancements
 - [ ] **Add keyboard shortcuts**
@@ -138,7 +138,7 @@
   - `Space`: Pause/resume (when recording)
   - `Escape`: Cancel/stop
   - `Ctrl/Cmd+S`: Save current recording
-  - Show shortcut cheat sheet on first use
+  - Show shortcut cheat sheet on clicking a small info icon in the bottom right corner
 
 - [ ] **Implement smart file naming**
   - Generate names based on configuration: "Screen+Camera - 3m 42s"

@@ -418,7 +418,10 @@ export const elements = {
     errorNotifications: null,
     downloadLast: null,
     recordingTimer: null,
-    pausedOverlay: null
+    pausedOverlay: null,
+    shortcutsInfoBtn: null,
+    shortcutsModal: null,
+    shortcutsClose: null
 };
 
 // ============================================
@@ -479,6 +482,9 @@ export function initElements() {
     elements.downloadLast = document.getElementById('download-last');
     elements.recordingTimer = document.getElementById('recording-timer');
     elements.pausedOverlay = document.getElementById('paused-overlay');
+    elements.shortcutsInfoBtn = document.getElementById('shortcuts-info-btn');
+    elements.shortcutsModal = document.getElementById('shortcuts-modal');
+    elements.shortcutsClose = document.querySelector('.shortcuts-close');
 }
 
 // ============================================
@@ -1150,6 +1156,24 @@ export function setupEventListeners() {
             showToast('No recordings available.', 'error');
         }
     });
+    
+    // Keyboard shortcuts modal
+    elements.shortcutsInfoBtn?.addEventListener('click', () => {
+        elements.shortcutsModal?.classList.remove('hidden');
+    });
+    
+    elements.shortcutsClose?.addEventListener('click', () => {
+        elements.shortcutsModal?.classList.add('hidden');
+    });
+    
+    elements.shortcutsModal?.addEventListener('click', (e) => {
+        if (e.target === elements.shortcutsModal) {
+            elements.shortcutsModal.classList.add('hidden');
+        }
+    });
+    
+    // Global keyboard shortcuts
+    document.addEventListener('keydown', handleKeyboardShortcuts);
 }
 
 // ============================================
@@ -1240,4 +1264,80 @@ export async function initUI() {
     
     // Expose loadMore for inline onclick handlers
     window.loadMoreRecordings = loadMoreRecordings;
+}
+
+/**
+ * Handle keyboard shortcuts
+ * @param {KeyboardEvent} e - Keyboard event
+ */
+function handleKeyboardShortcuts(e) {
+    // Don't trigger shortcuts when typing in input fields
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+    }
+    
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+    
+    // Ctrl/Cmd + Shift + R: Start/Stop recording
+    if (modifierKey && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        if (RecordingState.isRecording) {
+            stopRecording(showToast);
+        } else {
+            elements.startBtn?.click();
+        }
+        return;
+    }
+    
+    // Space: Pause/Resume (only when recording)
+    if (e.key === ' ' && RecordingState.isRecording) {
+        e.preventDefault();
+        togglePause(showToast).then(isPaused => {
+            if (isPaused !== undefined && elements.pauseBtn) {
+                elements.pauseBtn.textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+                if (elements.pausedOverlay) {
+                    elements.pausedOverlay.classList.toggle('hidden', !isPaused);
+                }
+            }
+        });
+        return;
+    }
+    
+    // Escape: Cancel/Stop recording
+    if (e.key === 'Escape' && RecordingState.isRecording) {
+        e.preventDefault();
+        stopRecording(showToast);
+        return;
+    }
+    
+    // Ctrl/Cmd + S: Save current recording
+    if (modifierKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (RecordingState.isRecording && RecordingState.recordedChunks.length > 0) {
+            saveCurrentRecording();
+        }
+        return;
+    }
+}
+
+/**
+ * Save the current recording while keeping recording active
+ */
+async function saveCurrentRecording() {
+    try {
+        const { saveRecording } = await import('./storage.js');
+        const config = AppConfig?.config || {};
+        const result = await saveRecording(RecordingState.recordedChunks, config, showToast);
+        
+        if (result && result.saved) {
+            showToast('Recording saved!', 'success');
+            // Refresh the saved list UI
+            await populateSavedList();
+            await updateStorageInfo();
+        }
+    } catch (err) {
+        console.error('Failed to save recording:', err);
+        showToast('Failed to save recording.', 'error');
+    }
 }

@@ -82,6 +82,35 @@
         </div>
     </footer>
 
+    <!-- Keyboard Shortcuts Info Icon -->
+    <button id="shortcuts-info-btn" class="shortcuts-info-btn" title="Keyboard Shortcuts">ℹ️</button>
+
+    <!-- Keyboard Shortcuts Cheat Sheet Modal -->
+    <div id="shortcuts-modal" class="shortcuts-modal hidden">
+        <div class="shortcuts-content">
+            <span class="shortcuts-close">&times;</span>
+            <h2>Keyboard Shortcuts</h2>
+            <div class="shortcuts-list">
+                <div class="shortcut-item">
+                    <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>
+                    <span class="shortcut-desc">Start/Stop Recording</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Space</kbd>
+                    <span class="shortcut-desc">Pause/Resume (when recording)</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Esc</kbd>
+                    <span class="shortcut-desc">Cancel/Stop Recording</span>
+                </div>
+                <div class="shortcut-item">
+                    <kbd>Ctrl</kbd> + <kbd>S</kbd>
+                    <span class="shortcut-desc">Save Current Recording</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
