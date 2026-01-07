@@ -682,7 +682,7 @@ img, video {
 #main-content {
     display: flex;
     flex-direction: column;
-    padding: var(--space-6) var(--space-4) calc(var(--space-4) + 80px);
+    padding: var(--space-6) var(--space-4);
     max-width: 900px;
     margin: 0 auto;
 }
@@ -1372,198 +1372,102 @@ img, video {
 }
 
 /* ==========================================================================
-   Footer - Storage Card
+   Storage Pie Chart - Floating Right
    ========================================================================== */
 
-.app-footer {
+.storage-pie {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: var(--space-4);
-    background: var(--bg-subtle);
-    border-top: 1px solid var(--border-light);
-    z-index: 50;
-}
-
-.storage-card {
-    max-width: 500px;
-    margin: 0 auto;
+    bottom: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: 0;
     background: var(--bg-default);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
-    padding: var(--space-4);
-}
-
-.storage-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-3);
-}
-
-.storage-title {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--text-sm-medium);
-    font-weight: var(--font-medium);
-    color: var(--text-default);
-}
-
-.storage-title svg {
-    width: 16px;
-    height: 16px;
-    color: var(--text-secondary);
-}
-
-.storage-info {
-    font-size: var(--text-xs);
-    font-weight: var(--font-medium);
-    color: var(--text-secondary);
-    background: var(--bg-subtle);
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-full);
-}
-
-.storage-progress-container {
-    height: 6px;
-    background: var(--bg-muted);
-    border-radius: var(--radius-full);
+    padding: var(--space-3);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
     overflow: hidden;
-    margin-bottom: var(--space-3);
+    width: auto;
+    min-width: 48px;
+    transition: all var(--transition-fast);
 }
 
-.storage-progress-bar {
+.storage-pie:hover {
+    gap: var(--space-3);
+    padding: var(--space-3);
+}
+
+.storage-pie-chart {
+    position: relative;
+    width: 40px;
+    height: 40px;
+}
+
+.pie-svg {
+    width: 100%;
     height: 100%;
-    width: 0%;
-    background: var(--primary);
-    border-radius: var(--radius-full);
-    transition: width var(--transition-base), background-color var(--transition-base);
+    transform: rotate(-90deg);
 }
 
-.storage-progress-bar.warning {
-    background: var(--warning);
+.pie-bg {
+    fill: none;
+    stroke: var(--bg-muted);
+    stroke-width: 3;
 }
 
-.storage-progress-bar.danger {
-    background: var(--error);
+.pie-progress {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.3s ease, stroke 0.3s ease;
 }
 
-.storage-warning {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-3);
+.pie-progress.warning {
+    stroke: var(--warning);
 }
 
-.storage-warning.warning {
-    background: var(--warning-subtle);
-    color: var(--warning);
-    border: 1px solid rgba(214, 158, 46, 0.2);
+.pie-progress.danger {
+    stroke: var(--error);
 }
 
-.storage-warning.danger {
-    background: var(--error-subtle);
-    color: var(--error);
-    border: 1px solid rgba(227, 72, 80, 0.2);
-}
-
-.storage-actions {
-    display: flex;
-    gap: var(--space-2);
-}
-
-.btn-storage {
-    flex: 1;
+.pie-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
-    padding: var(--space-2);
-    font-size: var(--text-sm);
+}
+
+#storage-percent {
+    font-size: 8px;
     font-weight: var(--font-medium);
     color: var(--text-secondary);
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
 }
 
-.btn-storage:hover {
-    border-color: var(--border-default);
-    color: var(--text-default);
-    background: var(--bg-muted);
-}
-
-.btn-storage svg {
-    width: 14px;
-    height: 14px;
-}
-
-.cleanup-suggestions {
-    margin-top: var(--space-3);
-    padding: var(--space-3);
-    background: var(--bg-subtle);
-    border-radius: var(--radius-md);
-}
-
-.cleanup-suggestions h4 {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--text-default);
-    margin-bottom: var(--space-2);
-}
-
-.cleanup-suggestions ul {
-    list-style: none;
-}
-
-.cleanup-suggestions li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-2);
-    background: var(--bg-default);
-    border-radius: var(--radius-sm);
-    margin-bottom: var(--space-1);
-}
-
-.cleanup-suggestions .recording-info {
+.storage-pie-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-}
-
-.cleanup-suggestions .recording-title {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--text-default);
-}
-
-.cleanup-suggestions .recording-size {
-    font-size: var(--text-xs);
-    color: var(--text-tertiary);
-}
-
-.cleanup-suggestions .delete-recording-btn {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-xs);
-    font-weight: var(--font-medium);
-    color: var(--error);
-    background: var(--error-subtle);
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
     transition: all var(--transition-fast);
 }
 
-.cleanup-suggestions .delete-recording-btn:hover {
-    background: rgba(227, 72, 80, 0.15);
+.storage-pie:hover .storage-pie-info {
+    width: auto;
+    opacity: 1;
+}
+
+.storage-pie-info .storage-info {
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -2259,12 +2163,10 @@ img, video {
         margin: 0 var(--space-3);
     }
 
-    .storage-card {
-        padding: var(--space-3);
-    }
-
-    .storage-actions {
-        flex-direction: column;
+    .storage-pie {
+        bottom: var(--space-3);
+        right: var(--space-3);
+        padding: var(--space-2);
     }
 
     .modal {
@@ -2300,7 +2202,7 @@ img, video {
 @media print {
     .app-header,
     #sidebar,
-    .app-footer,
+    .storage-pie,
     .shortcuts-info-btn,
     .command-menu {
         display: none !important;

@@ -921,114 +921,43 @@ export function updateToggles(disabled = true) {
 export async function updateStorageInfo() {
     const info = await getStorageInfo(showToast);
     if (elements.storageInfo && info) {
+        // Update storage info text
         if (info.quotaMB) {
             elements.storageInfo.textContent = `${info.usedMB} MB / ${info.quotaMB} MB`;
         } else {
             elements.storageInfo.textContent = `${info.usedMB} MB`;
         }
         
-        // Update progress bar
-        if (elements.storageProgressBar && info.percentFull) {
+        // Update pie chart
+        const pieProgress = document.getElementById('pie-progress');
+        const storagePercent = document.getElementById('storage-percent');
+        
+        if (pieProgress && info.percentFull) {
             const percent = Math.min(parseFloat(info.percentFull), 100);
-            elements.storageProgressBar.style.width = `${percent}%`;
+            // Calculate stroke-dasharray for pie chart (circumference = 2 * PI * r ≈ 100)
+            const circumference = 100;
+            const offset = circumference - (percent / 100) * circumference;
+            pieProgress.style.strokeDasharray = `${percent}, 100`;
             
             // Remove existing status classes
-            elements.storageProgressBar.classList.remove('warning', 'danger');
+            pieProgress.classList.remove('warning', 'danger');
             
             // Add appropriate status class
             if (info.status === 'danger') {
-                elements.storageProgressBar.classList.add('danger');
+                pieProgress.classList.add('danger');
             } else if (info.status === 'warning') {
-                elements.storageProgressBar.classList.add('warning');
+                pieProgress.classList.add('warning');
             }
         }
         
-        // Update warning message
-        if (elements.storageWarning) {
-            elements.storageWarning.classList.remove('hidden', 'warning', 'danger');
-            
-            if (info.status === 'danger') {
-                elements.storageWarning.classList.remove('hidden');
-                elements.storageWarning.classList.add('danger');
-                elements.storageWarning.textContent = '⚠️ Storage almost full! Delete old recordings to continue recording.';
-            } else if (info.status === 'warning') {
-                elements.storageWarning.classList.remove('hidden');
-                elements.storageWarning.classList.add('warning');
-                elements.storageWarning.textContent = '⚠️ Storage getting low. Consider deleting old recordings.';
-            }
+        // Update percentage text
+        if (storagePercent && info.percentFull) {
+            storagePercent.textContent = `${Math.min(parseFloat(info.percentFull), 100)}%`;
         }
     }
 }
 
-/**
- * Render cleanup suggestions in the UI
- */
-export async function renderCleanupSuggestions() {
-    if (!elements.cleanupSuggestions) return;
-    
-    const suggestions = await getCleanupSuggestions();
-    
-    if (!suggestions.hasSuggestions) {
-        // Show message in the suggestions panel instead of toast
-        elements.cleanupSuggestions.classList.remove('hidden');
-        elements.cleanupSuggestions.innerHTML = `
-            <h4>Cleanup Suggestions</h4>
-            <p>${suggestions.message || 'No cleanup suggestions available.'}</p>
-        `;
-        return;
-    }
-    
-    elements.cleanupSuggestions.classList.remove('hidden');
-    
-    let html = `<h4>Cleanup Suggestions (${suggestions.recordings.length} recordings)</h4>`;
-    html += `<p>Total: ${suggestions.totalSizeMB} MB across ${suggestions.totalRecordings} recordings</p>`;
-    html += '<ul>';
-    
-    for (const recording of suggestions.recordings) {
-        const dateStr = formatDate(recording.date);
-        html += `
-            <li>
-                <div class="recording-info">
-                    <span class="recording-title">${sanitizeTitle(recording.title)}</span>
-                    <span class="recording-size">${dateStr} | ${recording.sizeMB} MB</span>
-                </div>
-                <button class="delete-recording-btn" data-id="${recording.id}">Delete</button>
-            </li>
-        `;
-    }
-    
-    html += '</ul>';
-    elements.cleanupSuggestions.innerHTML = html;
-    
-    // Add event listeners to delete buttons
-    elements.cleanupSuggestions.querySelectorAll('.delete-recording-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const id = e.target.dataset.id;
-            const result = await deleteVideo(id, showToast);
-            if (result) {
-                await updateStorageInfo();
-                await renderCleanupSuggestions();
-                await populateSavedList();
-            }
-        });
-    });
-}
-
-/**
- * Toggle cleanup suggestions visibility
- */
-export function toggleCleanupSuggestions() {
-    if (!elements.cleanupSuggestions) return;
-    
-    const isHidden = elements.cleanupSuggestions.classList.contains('hidden');
-    
-    if (isHidden) {
-        elements.cleanupSuggestions.classList.remove('hidden');
-        renderCleanupSuggestions();
-    } else {
-        elements.cleanupSuggestions.classList.add('hidden');
-    }
-}
+// Cleanup suggestions functions removed - no longer needed with pie chart UI
 
 // ============================================
 // SAVED RECORDINGS LIST
@@ -1585,10 +1514,7 @@ export function setupEventListeners() {
         loadMoreRecordings();
     });
     
-    // Cleanup storage button
-    elements.cleanupStorage?.addEventListener('click', () => {
-        toggleCleanupSuggestions();
-    });
+    // Cleanup storage button removed - no longer needed
     
     // Close modal
     elements.closeModal?.addEventListener('click', () => {
@@ -1600,17 +1526,7 @@ export function setupEventListeners() {
         elements.modal?.classList.add('hidden');
     });
     
-    // Download last
-    elements.downloadLast?.addEventListener('click', async () => {
-        try {
-            const videos = await getAllVideos();
-            if (videos.length) {
-                await downloadSaved(videos[0].id, showToast);
-            }
-        } catch (err) {
-            showToast('No recordings available.', 'error');
-        }
-    });
+    // Download last button removed - no longer needed
     
     // Naming pattern modal events
     setupNamingPatternModal();

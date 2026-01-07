@@ -693,39 +693,21 @@
         </div>
     </div>
 
-    <footer class="app-footer">
-        <div class="storage-card">
-            <div class="storage-header">
-                <div class="storage-title">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M14 11V5a2 2 0 00-2-2H4a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2z"/>
-                        <path d="M2 9v2a2 2 0 002 2h8a2 2 0 002-2V9"/>
-                    </svg>
-                    <span>Storage</span>
-                </div>
-                <span id="storage-info" class="storage-info">0 MB / 0 MB</span>
+    <!-- Storage Card - Floating Pie Chart -->
+    <div class="storage-pie">
+        <div class="storage-pie-chart" id="storage-pie-chart">
+            <svg viewBox="0 0 36 36" class="pie-svg">
+                <circle class="pie-bg" cx="18" cy="18" r="15.91549430918954"></circle>
+                <circle id="pie-progress" class="pie-progress" cx="18" cy="18" r="15.91549430918954" stroke-dasharray="0, 100"></circle>
+            </svg>
+            <div class="pie-content">
+                <span id="storage-percent">0%</span>
             </div>
-            <div class="storage-progress-container">
-                <div id="storage-progress-bar" class="storage-progress-bar"></div>
-            </div>
-            <div id="storage-warning" class="storage-warning hidden"></div>
-            <div class="storage-actions">
-                <button id="download-last" class="btn-storage">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M8 12v-4M4 8l4-4 4 4M2 14h12"/>
-                    </svg>
-                    Download Last
-                </button>
-                <button id="cleanup-storage" class="btn-storage">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M3 5h10M5 5v8a1 1 0 001 1h4a1 1 0 001-1V5"/>
-                    </svg>
-                    Cleanup
-                </button>
-            </div>
-            <div id="cleanup-suggestions" class="cleanup-suggestions hidden"></div>
         </div>
-    </footer>
+        <div class="storage-pie-info">
+            <span id="storage-info" class="storage-info">0 MB</span>
+        </div>
+    </div>
 
     <!-- Keyboard Shortcuts Button -->
     <button id="shortcuts-info-btn" class="shortcuts-info-btn" title="Keyboard Shortcuts ⌘/">
