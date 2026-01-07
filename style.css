@@ -2183,6 +2183,184 @@ img, video {
 }
 
 /* ==========================================================================
+   Mobile Optimizations
+   ========================================================================== */
+
+/* Hide screen sharing toggle on mobile - not supported */
+@media (max-width: 768px) {
+    .config-card[data-config="screen"] {
+        display: none;
+    }
+    
+    /* Adjust grid to account for hidden screen toggle */
+    .config-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ==========================================================================
+   Touch Target Optimization - Minimum 44px
+   ========================================================================== */
+
+/* Increase touch targets for all interactive elements */
+.config-card {
+    min-height: 56px;
+    padding: var(--space-3) var(--space-4);
+}
+
+.btn-record {
+    min-height: 52px;
+    padding: var(--space-4) var(--space-4);
+}
+
+.btn-action-record {
+    min-height: 48px;
+}
+
+.app-menu-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.btn-sidebar-close {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.modal-close {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.filter-btn {
+    min-height: 36px;
+    padding: var(--space-2) var(--space-3);
+}
+
+.btn-action {
+    min-height: 36px;
+    padding: var(--space-2) var(--space-3);
+}
+
+.pip-btn {
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+}
+
+.btn-secondary,
+.btn-primary {
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+}
+
+.command-item {
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+}
+
+.shortcuts-info-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.storage-pie {
+    min-height: 52px;
+    padding: var(--space-3);
+}
+
+/* ==========================================================================
+   Landscape Orientation Handling
+   ========================================================================== */
+
+@media (orientation: landscape) and (max-height: 500px) {
+    .hero-section {
+        padding: var(--space-4) var(--space-3);
+        margin-bottom: var(--space-3);
+    }
+    
+    .hero-content h2 {
+        font-size: var(--text-lg);
+    }
+    
+    .hero-content p {
+        font-size: var(--text-sm);
+        max-width: 400px;
+    }
+    
+    .hero-content img {
+        max-height: 60px;
+    }
+    
+    .recording-controls {
+        padding: var(--space-3);
+    }
+    
+    .controls-header {
+        margin-bottom: var(--space-3);
+    }
+    
+    .controls-title {
+        font-size: var(--text-sm);
+    }
+    
+    .controls-subtitle {
+        font-size: var(--text-xs);
+    }
+    
+    .config-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-2);
+        margin-bottom: var(--space-3);
+    }
+    
+    .config-card {
+        padding: var(--space-2) var(--space-3);
+        min-height: 48px;
+    }
+    
+    .config-icon {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .config-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .config-title {
+        font-size: var(--text-xs);
+    }
+    
+    .config-desc {
+        display: none;
+    }
+    
+    .config-summary {
+        padding: var(--space-1) var(--space-2);
+        font-size: var(--text-xs);
+        margin-bottom: var(--space-2);
+    }
+    
+    .btn-record {
+        min-height: 44px;
+        padding: var(--space-2) var(--space-3);
+    }
+    
+    #main-content {
+        padding: var(--space-3) var(--space-3);
+    }
+}
+
+/* ==========================================================================
    Responsive Design
    ========================================================================== */
 
@@ -2239,6 +2417,44 @@ img, video {
         min-width: auto;
         max-width: calc(100vw - 32px);
     }
+    
+    /* Further simplify for very small screens */
+    .recording-controls {
+        padding: var(--space-3);
+    }
+    
+    .controls-header {
+        margin-bottom: var(--space-3);
+    }
+    
+    .controls-title {
+        font-size: var(--text-sm);
+    }
+    
+    .controls-subtitle {
+        font-size: var(--text-xs);
+    }
+    
+    .config-summary {
+        font-size: var(--text-xs);
+    }
+    
+    .btn-record-shortcut {
+        display: none;
+    }
+}
+
+/* ==========================================================================
+   Landscape Mode Class (for JS-triggered landscape handling)
+   ========================================================================== */
+
+.landscape-mode .hero-content p,
+.landscape-mode .hero-content img {
+    display: none;
+}
+
+.landscape-mode .hero-content h2 {
+    font-size: var(--text-lg);
 }
 
 /* ==========================================================================

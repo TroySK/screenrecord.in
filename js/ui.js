@@ -1645,6 +1645,9 @@ export async function initUI() {
     // Initialize capabilities-based UI adjustments
     initCapabilitiesUI();
     
+    // Initialize mobile optimizations
+    initMobileOptimizations();
+    
     // Restore config
     AppConfig.restore();
     
@@ -1708,6 +1711,56 @@ export async function initUI() {
     
     // Expose loadMore for inline onclick handlers
     window.loadMoreRecordings = loadMoreRecordings;
+}
+
+/**
+ * Initialize mobile-specific optimizations
+ */
+function initMobileOptimizations() {
+    // Detect mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                     (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    
+    if (isMobile) {
+        // Hide screen sharing toggle on mobile (not supported)
+        const screenCard = document.querySelector('.config-card[data-config="screen"]');
+        if (screenCard) {
+            screenCard.style.display = 'none';
+        }
+        
+        // Disable screen toggle
+        if (elements.screenToggle) {
+            elements.screenToggle.disabled = true;
+        }
+        
+        // Show info message
+        showToast('Screen sharing is not supported on mobile browsers.', 'info');
+    }
+    
+    // Handle orientation changes
+    window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+            handleOrientationChange();
+        }, 100);
+    });
+    
+    // Initial orientation check
+    handleOrientationChange();
+}
+
+/**
+ * Handle orientation changes for better mobile experience
+ */
+function handleOrientationChange() {
+    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    
+    if (isMobile && isLandscape) {
+        // In landscape on mobile, hide non-essential elements
+        document.body.classList.add('landscape-mode');
+    } else {
+        document.body.classList.remove('landscape-mode');
+    }
 }
 
 /**
