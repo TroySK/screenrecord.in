@@ -377,12 +377,44 @@ export const ModuleLoader = {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', async () => {
         setupPageLifecycle();
+        setupHeroVideoToggle();
         await initApp();
     });
 } else {
     // DOM already loaded
     setupPageLifecycle();
+    setupHeroVideoToggle();
     await initApp();
+}
+
+// ============================================
+// HERO VIDEO TOGGLE
+// ============================================
+
+function setupHeroVideoToggle() {
+    const heroVideo = document.querySelector('.hero-video');
+    if (heroVideo) {
+        // Single click toggles audio
+        heroVideo.addEventListener('click', () => {
+            if (heroVideo.muted) {
+                heroVideo.muted = false;
+            } else {
+                heroVideo.muted = true;
+            }
+        });
+        
+        // Double click toggles fullscreen
+        heroVideo.addEventListener('dblclick', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                heroVideo.requestFullscreen();
+            }
+        });
+        
+        heroVideo.style.cursor = 'pointer';
+        heroVideo.title = 'Click to toggle audio, double-click for fullscreen';
+    }
 }
 
 // Export for debugging

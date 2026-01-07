@@ -183,14 +183,14 @@ function drawWatermark(ctx, width, height) {
     
     // Draw outer circle (ring)
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.strokeStyle = 'rgba(139, 156, 244, 0.7)';
     ctx.lineWidth = Math.max(1, logoSize * 0.04);
     ctx.beginPath();
     ctx.arc(x, y - textSize * 0.3, logoSize * 0.45, 0, Math.PI * 2);
     ctx.stroke();
     
     // Draw inner circle (filled)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fillStyle = 'rgba(139, 156, 244, 0.7)';
     ctx.beginPath();
     ctx.arc(x, y - textSize * 0.3, logoSize * 0.2, 0, Math.PI * 2);
     ctx.fill();

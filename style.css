@@ -278,6 +278,15 @@ img, video {
     margin: 0 auto;
 }
 
+.hero-video {
+    max-width: 400px;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-lg);
+    margin: var(--space-4) 0;
+    box-shadow: 0 0 0 2px var(--primary-subtle), 0 0 20px var(--primary-subtle);
+}
+
 /* ==========================================================================
    Features Section - SEO Content
    ========================================================================== */
@@ -693,9 +702,10 @@ img, video {
 
 .recording-controls {
     background: var(--bg-default);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--primary);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
+    box-shadow: 0 0 20px var(--primary-subtle), 0 0 40px var(--primary-subtle);
 }
 
 .controls-header {
