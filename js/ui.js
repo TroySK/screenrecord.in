@@ -1272,13 +1272,15 @@ export function setupEventListeners() {
             
             // Show preview canvas if exists
             if (RecordingState.previewCanvas && elements.previewArea) {
-                // Check if previewVideo is a child of previewArea
-                if (elements.previewVideo && elements.previewArea.contains(elements.previewVideo)) {
+                // Check if previewVideo is a direct child of previewArea
+                if (elements.previewVideo && elements.previewVideo.parentNode === elements.previewArea) {
                     elements.previewArea.insertBefore(RecordingState.previewCanvas, elements.previewVideo);
                 } else {
                     elements.previewArea.appendChild(RecordingState.previewCanvas);
                 }
-                elements.previewVideo.style.display = 'none';
+                if (elements.previewVideo) {
+                    elements.previewVideo.style.display = 'none';
+                }
                 elements.previewArea.classList.remove('hidden');
             }
             

@@ -192,9 +192,9 @@ export async function showFilenameEditModal(options) {
         const preview = document.getElementById('filename-preview-text');
         const saveBtn = document.getElementById('filename-save');
         const cancelBtn = document.getElementById('filename-cancel');
-        const closeBtn = document.querySelector('.filename-modal-close');
+        const closeBtn = modal?.querySelector('.modal-close');
         
-        if (!modal || !input || !preview || !saveBtn || !cancelBtn) {
+        if (!modal || !input || !preview || !saveBtn || !cancelBtn || !closeBtn) {
             // Fallback if modal elements don't exist
             resolve(generateUniqueFilename(options));
             return;
