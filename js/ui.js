@@ -664,6 +664,11 @@ export function setupEventListeners() {
     
     // Close modal
     elements.closeModal?.addEventListener('click', () => {
+        // Stop video playback when closing modal
+        if (elements.modalVideo) {
+            elements.modalVideo.pause();
+            elements.modalVideo.currentTime = 0;
+        }
         elements.modal?.classList.add('hidden');
     });
     
