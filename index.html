@@ -168,7 +168,7 @@
             <span class="logo-text">ScreenRecord</span>
         </a>
         
-        <button class="app-menu-btn" id="menu-toggle" aria-label="Menu" title="Menu ⌘K">
+        <button class="app-menu-btn" id="menu-toggle" aria-label="Menu" title="Menu ⌘⇧K">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
                 <path d="M2 4h12M2 8h12M2 12h12"/>
             </svg>
@@ -196,14 +196,14 @@
                             <path d="M8 5v3M5 8h3"/>
                         </svg>
                         <span>New Recording</span>
-                        <span class="command-shortcut">⌘N</span>
+                        <span class="command-shortcut">⌘⇧N</span>
                     </button>
                     <button class="command-item" data-action="saved-recordings">
                         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                             <path d="M2 4a2 2 0 012-2h8a2 2 0 012 2v1l3 3 3-3v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7l3-3V4z"/>
                         </svg>
                         <span>Saved Recordings</span>
-                        <span class="command-shortcut">⌘S</span>
+                        <span class="command-shortcut">⌘⇧S</span>
                     </button>
                     <button class="command-item" data-action="naming-pattern">
                         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -218,7 +218,7 @@
                             <path d="M5 6h2M5 9h2M9 6h2M9 9h2"/>
                         </svg>
                         <span>Keyboard Shortcuts</span>
-                        <span class="command-shortcut">⌘/</span>
+                        <span class="command-shortcut">⌘⇧/</span>
                     </button>
                 </div>
                 
@@ -233,7 +233,7 @@
                             <path d="M12 7a5 5 0 01-5 5 5 5 0 01-3-9"/>
                         </svg>
                         <span>Toggle Dark Mode</span>
-                        <span class="command-shortcut">⌘D</span>
+                        <span class="command-shortcut">⌘⇧D</span>
                     </button>
                 </div>
             </div>
@@ -356,7 +356,7 @@
                     <circle cx="8" cy="8" r="6"/>
                 </svg>
                 <span>Start Recording</span>
-                <span class="btn-record-shortcut">⌘⇧R</span>
+                <span class="btn-record-shortcut">⌘⇧P</span>
             </button>
 
             <!-- Recording Controls - Pause/Stop buttons shown during recording -->
@@ -491,11 +491,11 @@
                 </li>
                 <li>
                     <strong>Start Recording</strong>
-                    <p>Click the record button or use the keyboard shortcut ⌘⇧R.</p>
+                    <p>Click the record button or use the keyboard shortcut ⌘⇧P.</p>
                 </li>
                 <li>
                     <strong>Control Recording</strong>
-                    <p>Pause and resume with Space, or stop with Esc.</p>
+                    <p>Pause and resume with ⌘⇧X, or stop with ⌘⇧C.</p>
                 </li>
                 <li>
                     <strong>Save & Download</strong>
@@ -600,24 +600,36 @@
                 <h2>Keyboard Shortcuts</h2>
                 <div class="shortcuts-list">
                     <div class="shortcut-item">
-                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd>
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd>
                         <span class="shortcut-desc">Start/Stop Recording</span>
                     </div>
                     <div class="shortcut-item">
-                        <kbd>Space</kbd>
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd>
                         <span class="shortcut-desc">Pause/Resume</span>
                     </div>
                     <div class="shortcut-item">
-                        <kbd>Esc</kbd>
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>C</kbd>
                         <span class="shortcut-desc">Cancel Recording</span>
                     </div>
                     <div class="shortcut-item">
-                        <kbd>⌘</kbd><kbd>S</kbd>
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>S</kbd>
                         <span class="shortcut-desc">Save Recording</span>
                     </div>
                     <div class="shortcut-item">
-                        <kbd>⌘</kbd><kbd>K</kbd>
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd>
                         <span class="shortcut-desc">Open Command Menu</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>/</kbd>
+                        <span class="shortcut-desc">Show Shortcuts</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd>
+                        <span class="shortcut-desc">New Recording</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>⌘</kbd><kbd>⇧</kbd><kbd>D</kbd>
+                        <span class="shortcut-desc">Toggle Dark Mode</span>
                     </div>
                 </div>
             </div>
@@ -717,7 +729,7 @@
     </div>
 
     <!-- Keyboard Shortcuts Button -->
-    <button id="shortcuts-info-btn" class="shortcuts-info-btn" title="Keyboard Shortcuts ⌘/">
+    <button id="shortcuts-info-btn" class="shortcuts-info-btn" title="Keyboard Shortcuts ⌘⇧/">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M5 6h2M5 9h2M9 6h2M9 9h2"/>

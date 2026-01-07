@@ -83,8 +83,8 @@ export class CommandMenu {
             return;
         }
         
-        // Cmd+K or Ctrl+K to open
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        // Cmd+Shift+K or Ctrl+Shift+K to open
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'k') {
             e.preventDefault();
             this.toggle();
             return;
@@ -1723,36 +1723,36 @@ function handleKeyboardShortcuts(e) {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifierKey = isMac ? e.metaKey : e.ctrlKey;
     
-    // Cmd/Ctrl + K: Open command menu (handled by CommandMenu class)
-    if (modifierKey && e.key === 'k') {
+    // Cmd/Ctrl + Shift + K: Open command menu (handled by CommandMenu class)
+    if (modifierKey && e.shiftKey && (e.key === 'k' || e.key === 'K')) {
         return; // Let CommandMenu handle this
     }
     
-    // Cmd/Ctrl + /: Show shortcuts
-    if (modifierKey && e.key === '/') {
+    // Cmd/Ctrl + Shift + /: Show shortcuts
+    if (modifierKey && e.shiftKey && e.key === '/') {
         e.preventDefault();
         const shortcutsModal = document.getElementById('shortcuts-modal');
         shortcutsModal?.classList.remove('hidden');
         return;
     }
     
-    // Cmd/Ctrl + N: New recording
-    if (modifierKey && e.key === 'n') {
+    // Cmd/Ctrl + Shift + N: New recording
+    if (modifierKey && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault();
         const screenToggle = document.getElementById('screen-toggle');
         screenToggle?.focus();
         return;
     }
     
-    // Cmd/Ctrl + D: Toggle dark mode
-    if (modifierKey && e.key === 'd') {
+    // Cmd/Ctrl + Shift + D: Toggle dark mode
+    if (modifierKey && e.shiftKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         toggleDarkMode();
         return;
     }
     
-    // Ctrl/Cmd + Shift + R: Start/Stop recording
-    if (modifierKey && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+    // Cmd/Ctrl + Shift + P: Start/Stop recording
+    if (modifierKey && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
         if (RecordingState.isRecording) {
             stopRecording(showToast);
@@ -1762,8 +1762,8 @@ function handleKeyboardShortcuts(e) {
         return;
     }
     
-    // Space: Pause/Resume (only when recording)
-    if (e.key === ' ' && RecordingState.isRecording) {
+    // Cmd/Ctrl + Shift + X: Pause/Resume (only when recording)
+    if (modifierKey && e.shiftKey && (e.key === 'x' || e.key === 'X') && RecordingState.isRecording) {
         e.preventDefault();
         togglePause(showToast).then(isPaused => {
             if (isPaused !== undefined && elements.pauseBtn) {
@@ -1778,8 +1778,8 @@ function handleKeyboardShortcuts(e) {
         return;
     }
     
-    // Escape: Cancel/Stop recording or close modals
-    if (e.key === 'Escape') {
+    // Cmd/Ctrl + Shift + C: Cancel/Stop recording or close modals
+    if (modifierKey && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
         // Close modals first
         const shortcutsModal = document.getElementById('shortcuts-modal');
         const filenameModal = document.getElementById('filename-modal');
@@ -1811,8 +1811,8 @@ function handleKeyboardShortcuts(e) {
         return;
     }
     
-    // Ctrl/Cmd + S: Save current recording
-    if (modifierKey && (e.key === 's' || e.key === 'S')) {
+    // Cmd/Ctrl + Shift + S: Save current recording
+    if (modifierKey && e.shiftKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         if (RecordingState.isRecording && RecordingState.recordedChunks.length > 0) {
             saveCurrentRecording();
