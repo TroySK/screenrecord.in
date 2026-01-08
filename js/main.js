@@ -379,12 +379,28 @@ if (document.readyState === 'loading') {
         setupPageLifecycle();
         setupHeroVideoToggle();
         await initApp();
+        initPROModal();
     });
 } else {
     // DOM already loaded
     setupPageLifecycle();
     setupHeroVideoToggle();
     await initApp();
+    initPROModal();
+}
+
+// ============================================
+// PRO Modal Initialization
+// ============================================
+
+async function initPROModal() {
+    try {
+        const { PROModal } = await import('./pro-modal.js');
+        new PROModal();
+        console.log('PRO modal initialized');
+    } catch (err) {
+        console.error('Failed to initialize PRO modal:', err);
+    }
 }
 
 // ============================================
