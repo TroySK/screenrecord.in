@@ -2491,6 +2491,138 @@ img, video {
     color: var(--primary-hover);
 }
 
+.footer-links {
+    margin-top: var(--space-2);
+    font-size: var(--text-xs);
+}
+
+.footer-links a {
+    color: var(--text-tertiary);
+    transition: color var(--transition-fast);
+}
+
+.footer-links a:hover {
+    color: var(--primary);
+}
+
+.link-separator {
+    margin: 0 var(--space-2);
+    color: var(--border-default);
+}
+
+/* ==========================================================================
+     Legal Pages - Privacy Policy & Terms of Service
+     ========================================================================== */
+
+.legal-container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-4);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--primary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    margin-bottom: var(--space-6);
+    transition: color var(--transition-fast);
+}
+
+.back-link:hover {
+    color: var(--primary-hover);
+}
+
+.legal-container h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-semibold);
+    color: var(--text-default);
+    margin-bottom: var(--space-2);
+}
+
+.last-updated {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-8);
+}
+
+.legal-container section {
+    margin-bottom: var(--space-6);
+}
+
+.legal-container h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text-default);
+    margin-bottom: var(--space-3);
+}
+
+.legal-container p {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-3);
+}
+
+.legal-container ul {
+    list-style: disc;
+    padding-left: var(--space-5);
+    margin-bottom: var(--space-3);
+}
+
+.legal-container li {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-2);
+}
+
+.legal-container strong {
+    font-weight: var(--font-medium);
+    color: var(--text-default);
+}
+
+/* Responsive for legal pages */
+@media (max-width: 768px) {
+    .legal-container {
+        padding: var(--space-6) var(--space-4);
+    }
+
+    .legal-container h1 {
+        font-size: var(--text-xl);
+    }
+
+    .legal-container h2 {
+        font-size: var(--text-base-medium);
+    }
+
+    .legal-container p,
+    .legal-container li {
+        font-size: var(--text-sm);
+    }
+}
+
+/* ==========================================================================
+     Feedback Modal
+     ========================================================================== */
+
+.feedback-modal-content {
+    max-width: 600px;
+}
+
+.feedback-modal-content h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text-default);
+    margin-bottom: var(--space-4);
+}
+
+.feedback-modal-content .wufoo-form {
+    min-height: 497px;
+}
+
 /* ==========================================================================
     PRO Features Section
     ========================================================================== */

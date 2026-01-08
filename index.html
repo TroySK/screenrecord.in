@@ -911,7 +911,57 @@
     <!-- Footer -->
     <footer class="app-footer">
         <p>Made with love by <a href="https://www.troysk.com" target="_blank" rel="noopener noreferrer">Troy SK</a>. Support me by <a href="https://www.buymeacoffee.com/troysk" target="_blank" rel="noopener noreferrer">buying me a coffee</a>!</p>
+        <p class="footer-links">
+            <a href="privacy-policy.html">Privacy Policy</a>
+            <span class="link-separator">|</span>
+            <a href="terms.html">Terms of Service</a>
+            <span class="link-separator">|</span>
+            <a href="#" id="feedback-link">Feedback</a>
+        </p>
     </footer>
+
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal feedback-modal-content">
+            <button class="modal-close" id="feedback-modal-close">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 4L4 12M4 4l8 8"/>
+                </svg>
+            </button>
+            <div class="modal-content">
+                <h2>Send Feedback</h2>
+                <div id="wufoo-z1yhujno14dl4r6">Fill out my <a href="https://troysk.wufoo.com/forms/z1yhujno14dl4r6">online form</a>.</div>
+                <script type="text/javascript">
+                    var z1yhujno14dl4r6;
+                    (function(d, t) {
+                        var s = d.createElement(t), options = {
+                            'userName':'troysk',
+                            'formHash':'z1yhujno14dl4r6',
+                            'autoResize':true,
+                            'height':'497',
+                            'async':true,
+                            'host':'wufoo.com',
+                            'header':'show',
+                            'ssl':true
+                        };
+                        s.src = ('https:' == d.location.protocol ?'https://':'http://') + 'secure.wufoo.com/scripts/embed/form.js';
+                        s.onload = s.onreadystatechange = function() {
+                            var rs = this.readyState;
+                            if (rs) if (rs != 'complete') if (rs != 'loaded') return;
+                            try {
+                                z1yhujno14dl4r6 = new WufooForm();
+                                z1yhujno14dl4r6.initialize(options);
+                                z1yhujno14dl4r6.display();
+                            } catch (e) { }
+                        };
+                        var scr = d.getElementsByTagName(t)[0], par = scr.parentNode;
+                        par.insertBefore(s, scr);
+                    })(document, 'script');
+                </script>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="js/main.js"></script>
 </body>

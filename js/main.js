@@ -380,6 +380,7 @@ if (document.readyState === 'loading') {
         setupHeroVideoToggle();
         await initApp();
         initPROModal();
+        initFeedbackModal();
     });
 } else {
     // DOM already loaded
@@ -387,6 +388,7 @@ if (document.readyState === 'loading') {
     setupHeroVideoToggle();
     await initApp();
     initPROModal();
+    initFeedbackModal();
 }
 
 // ============================================
@@ -401,6 +403,47 @@ async function initPROModal() {
     } catch (err) {
         console.error('Failed to initialize PRO modal:', err);
     }
+}
+
+// ============================================
+// FEEDBACK Modal Initialization
+// ============================================
+
+function initFeedbackModal() {
+    const feedbackLink = document.getElementById('feedback-link');
+    const feedbackModal = document.getElementById('feedback-modal');
+    const feedbackModalClose = document.getElementById('feedback-modal-close');
+    const feedbackBackdrop = feedbackModal?.querySelector('.modal-backdrop');
+
+    if (feedbackLink && feedbackModal) {
+        feedbackLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            feedbackModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        });
+    }
+
+    const closeFeedbackModal = () => {
+        if (feedbackModal) {
+            feedbackModal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    };
+
+    if (feedbackModalClose) {
+        feedbackModalClose.addEventListener('click', closeFeedbackModal);
+    }
+
+    if (feedbackBackdrop) {
+        feedbackBackdrop.addEventListener('click', closeFeedbackModal);
+    }
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && feedbackModal && !feedbackModal.classList.contains('hidden')) {
+            closeFeedbackModal();
+        }
+    });
 }
 
 // ============================================
