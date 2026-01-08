@@ -278,13 +278,50 @@ img, video {
     margin: 0 auto;
 }
 
+.hero-video-wrapper {
+    position: relative;
+    display: inline-block;
+    margin: var(--space-4) 0;
+}
+
 .hero-video {
     max-width: 400px;
     width: 100%;
     height: auto;
     border-radius: var(--radius-lg);
-    margin: var(--space-4) 0;
     box-shadow: 0 0 0 2px var(--primary-subtle), 0 0 20px var(--primary-subtle);
+    cursor: pointer;
+    transition: box-shadow var(--transition-fast);
+}
+
+.hero-video:hover {
+    box-shadow: 0 0 0 2px var(--primary), 0 0 30px var(--primary-subtle);
+}
+
+/* Video Tooltip */
+.hero-video-wrapper::after {
+    content: 'Single click to unmute • Double click for fullscreen';
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000000;
+    color: #FFFFFF;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-fast), visibility var(--transition-fast);
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.hero-video-wrapper:hover::after {
+    opacity: 1;
+    visibility: visible;
 }
 
 /* ==========================================================================
