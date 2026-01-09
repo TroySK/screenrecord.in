@@ -529,3 +529,150 @@ export async function getCleanupSuggestions() {
         return { hasSuggestions: false, message: 'Unable to analyze storage.' };
     }
 }
+
+// ============================================
+// FILE SYSTEM SYNC
+// ============================================
+
+/**
+ * Check if File System Access API is supported
+ * @returns {boolean}
+ */
+export function isFileSystemAccessSupported() {
+    return 'showDirectoryPicker' in window;
+}
+
+/**
+ * Sync all recordings to a user-selected directory
+ * @param {Function} onProgress - Callback for progress updates (current, total)
+ * @param {Function} showToast - Toast notification function
+ * @returns {Promise<Object>} - Result with success count and any errors
+ */
+export async function syncRecordingsToFileSystem(onProgress = null, showToast = null) {
+    if (!isFileSystemAccessSupported()) {
+        if (showToast) showToast('File System Access API not supported in this browser', 'error');
+        return { success: false, error: 'File System Access API not supported' };
+    }
+
+    try {
+        // Show directory picker
+        const dirHandle = await window.showDirectoryPicker({
+            mode: 'readwrite',
+            startIn: 'downloads'
+        });
+
+        // Get all recordings
+        const videos = await getAllVideos();
+        
+        if (videos.length === 0) {
+            if (showToast) showToast('No recordings to sync', 'info');
+            return { success: true, synced: 0, errors: [] };
+        }
+
+        let synced = 0;
+        const errors = [];
+
+        // Process each recording
+        for (let i = 0; i < videos.length; i++) {
+            const video = videos[i];
+            
+            if (onProgress) {
+                onProgress(i + 1, videos.length, video.title);
+            }
+
+            try {
+                // Generate filename
+                const { generateSafeFilename } = await import('./utils.js');
+                const safeTitle = generateSafeFilename(video.title);
+                const filename = `${safeTitle}.mp4`;
+
+                // Get or create the file in the directory
+                let fileHandle;
+                try {
+                    fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+                } catch {
+                    // If file exists, get existing handle
+                    fileHandle = await dirHandle.getFileHandle(filename);
+                }
+
+                // Create writable stream and write the blob
+                const writable = await fileHandle.createWritable();
+                await writable.write(video.videoBlob);
+                await writable.close();
+
+                synced++;
+            } catch (err) {
+                console.error(`Failed to sync ${video.title}:`, err);
+                errors.push({ title: video.title, error: err.message });
+            }
+        }
+
+        if (showToast) {
+            if (errors.length === 0) {
+                showToast(`Successfully synced ${synced} recording(s) to selected folder!`, 'success');
+            } else {
+                showToast(`Synced ${synced}/${videos.length} recordings. ${errors.length} failed.`, 'warning');
+            }
+        }
+
+        return { success: errors.length === 0, synced, errors, total: videos.length };
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            if (showToast) showToast('Sync cancelled', 'info');
+            return { success: false, error: 'Cancelled by user' };
+        }
+        console.error('File system sync error:', err);
+        if (showToast) showToast('Failed to sync recordings: ' + err.message, 'error');
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Sync a single recording to a user-selected location
+ * @param {string} id - Recording ID
+ * @param {Function} showToast - Toast notification function
+ * @returns {Promise<boolean>} - Success status
+ */
+export async function syncSingleRecording(id, showToast = null) {
+    if (!isFileSystemAccessSupported()) {
+        if (showToast) showToast('File System Access API not supported in this browser', 'error');
+        return false;
+    }
+
+    try {
+        const video = await getVideo(id);
+        if (!video || !video.videoBlob) {
+            if (showToast) showToast('Recording not found', 'error');
+            return false;
+        }
+
+        // Generate filename
+        const { generateSafeFilename } = await import('./utils.js');
+        const safeTitle = generateSafeFilename(video.title);
+        const filename = `${safeTitle}.mp4`;
+
+        // Show file picker
+        const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+                description: 'Video files',
+                accept: { 'video/mp4': ['.mp4'], 'video/webm': ['.webm'] }
+            }]
+        });
+
+        // Write the file
+        const writable = await handle.createWritable();
+        await writable.write(video.videoBlob);
+        await writable.close();
+
+        if (showToast) showToast(`Saved "${filename}" to selected location!`, 'success');
+        return true;
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            return false;
+        }
+        console.error('Failed to save recording:', err);
+        if (showToast) showToast('Failed to save recording: ' + err.message, 'error');
+        return false;
+    }
+}

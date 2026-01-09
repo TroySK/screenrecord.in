@@ -695,6 +695,19 @@
         
         <div class="sidebar-footer">
             <button id="load-more-btn" class="btn-load-more" style="display: none;">Load More</button>
+            <button id="sync-filesystem" class="btn-sync">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M2 9a4 4 0 014-4h4a4 4 0 014 4 4 4 0 01-4 4H6a4 4 0 01-4-4z"/>
+                    <path d="M12 2v4M12 14v4M14.5 4.5l-2.5 2.5M5.5 11.5l-2.5-2.5M14.5 11.5l-2.5-2.5M5.5 4.5l-2.5 2.5"/>
+                </svg>
+                Sync to Device
+            </button>
+            <div id="sync-progress" class="sync-progress hidden">
+                <div class="sync-progress-bar">
+                    <div id="sync-progress-fill" class="sync-progress-fill" style="width: 0%"></div>
+                </div>
+                <span id="sync-progress-text" class="sync-progress-text">Syncing...</span>
+            </div>
             <button id="clear-all" class="btn-clear">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M3 5h10M5 5v9a1 1 0 001 1h4a1 1 0 001-1V5M7 9l2 2M9 9l2 2"/>

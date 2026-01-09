@@ -3,7 +3,7 @@
 // ============================================
 
 import { createElement, sanitizeTitle, formatDuration, formatFileSize, formatDate, STATE_VERSION, STORAGE_KEY, VALID_CONFIG_KEYS, VALID_CONFIG_VALUES, CONFIG, Capabilities, initCapabilitiesUI } from './utils.js';
-import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo, getVideosPaginated, getVideosCount, getCleanupSuggestions } from './storage.js';
+import { getAllVideos, getVideo, downloadSaved, deleteVideo, secureDeleteAll, getStorageInfo, getVideosPaginated, getVideosCount, getCleanupSuggestions, syncRecordingsToFileSystem, isFileSystemAccessSupported } from './storage.js';
 import { startRecording, stopRecording, RecordingState, togglePause } from './recording.js';
 import { Validator, RecordingConfigValidator, StorageValidator, ValidationMessages } from './validation.js';
 
@@ -1557,6 +1557,41 @@ export function setupEventListeners() {
     });
     
     // Cleanup storage button removed - no longer needed
+    
+    // Sync to file system button
+    const syncBtn = document.getElementById('sync-filesystem');
+    const syncProgress = document.getElementById('sync-progress');
+    const syncProgressFill = document.getElementById('sync-progress-fill');
+    const syncProgressText = document.getElementById('sync-progress-text');
+    
+    syncBtn?.addEventListener('click', async () => {
+        // Check if File System Access API is supported
+        if (!isFileSystemAccessSupported()) {
+            showToast('File System Access API not supported. Try Chrome or Edge.', 'error');
+            return;
+        }
+        
+        // Show progress
+        syncBtn.disabled = true;
+        syncProgress.classList.remove('hidden');
+        
+        const result = await syncRecordingsToFileSystem(
+            (current, total, title) => {
+                const percent = Math.round((current / total) * 100);
+                syncProgressFill.style.width = `${percent}%`;
+                syncProgressText.textContent = `Syncing ${current}/${total}: ${title}`;
+            },
+            showToast
+        );
+        
+        // Reset UI
+        syncBtn.disabled = false;
+        syncProgress.classList.add('hidden');
+        syncProgressFill.style.width = '0%';
+        
+        // Refresh storage info
+        updateStorageInfo();
+    });
     
     // Close modal
     elements.closeModal?.addEventListener('click', () => {
