@@ -1336,6 +1336,37 @@ export function setupEventListeners() {
     
     // Recording controls
     elements.startBtn?.addEventListener('click', async () => {
+        // Check if this is Safari - Safari requires getDisplayMedia to be called directly
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        
+        if (isSafari && AppConfig.config.screen) {
+            // Safari path: call getDisplayMedia directly from user gesture
+            try {
+                // CaptureController is only available in Chrome/Edge
+                const options = {
+                    video: true,
+                    audio: AppConfig.config.systemAudio || false
+                };
+                
+                // Only add controller if it exists (Chrome/Edge)
+                if (window.CaptureController) {
+                    options.controller = new CaptureController();
+                }
+                
+                const screenStream = await navigator.mediaDevices.getDisplayMedia(options);
+                
+                // Store the screen stream for use in recording
+                window._safariScreenStream = screenStream;
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    showToast('Screen sharing was denied. Please allow access and try again.', 'error');
+                } else {
+                    showToast(`Screen share failed: ${err.message}`, 'error');
+                }
+                return;
+            }
+        }
+        
         // Validate configuration before starting
         const configValidation = RecordingConfigValidator.validate(AppConfig.config);
         

@@ -345,17 +345,21 @@ export async function getMediaStream(config, showToast = null) {
     
     if (config.screen) {
         try {
-            RecordingState.screenStream = await PermissionManager.requestScreenShare({
-                audio: config.systemAudio
-            }, showToast);
+            // Check if we have a pre-acquired screen stream (Safari)
+            if (window._safariScreenStream) {
+                RecordingState.screenStream = window._safariScreenStream;
+                window._safariScreenStream = null; // Clear the stored stream
+            } else {
+                RecordingState.screenStream = await PermissionManager.requestScreenShare({
+                    audio: config.systemAudio
+                }, showToast);
+            }
             
             const videoTrack = RecordingState.screenStream.getVideoTracks()[0];
             const settings = videoTrack.getSettings();
             
-            if (settings.displaySurface === 'browser' || settings.displaySurface === 'window') {
-                const controller = new CaptureController();
-                controller.setFocusBehavior('no-focus-change');
-            }
+            // Note: CaptureController is now handled in ui.js for Safari compatibility
+            // This check is kept for reference but not used since we handle it earlier
             
             streams.push(RecordingState.screenStream);
         } catch (err) {
@@ -418,16 +422,31 @@ export async function getMediaStream(config, showToast = null) {
         }
     }
     
-    // Combine streams
+    // Combine streams - ensure screen is primary (first video track) and camera is overlay
     const combined = new MediaStream();
+    
+    // Get all video and audio tracks separately to control order
+    const screenVideoTracks = RecordingState.screenStream?.getVideoTracks() || [];
+    const cameraVideoTracks = RecordingState.cameraStream?.getVideoTracks() || [];
+    const audioTracks = [];
+    
+    // Collect all audio tracks from all streams
     streams.forEach(s => {
-        s.getVideoTracks().forEach(track => combined.addTrack(track));
-        if (!config.systemAudio || !config.mic || !mixedAudioTrack) {
-            s.getAudioTracks().forEach(track => combined.addTrack(track));
-        }
+        s.getAudioTracks().forEach(track => audioTracks.push(track));
     });
-    if (audioStream && (!config.systemAudio || !config.mic || !mixedAudioTrack)) {
-        audioStream.getAudioTracks().forEach(track => combined.addTrack(track));
+    if (audioStream) {
+        audioStream.getAudioTracks().forEach(track => audioTracks.push(track));
+    }
+    
+    // Add screen video tracks FIRST (primary)
+    screenVideoTracks.forEach(track => combined.addTrack(track));
+    
+    // Add camera video tracks SECOND (overlay)
+    cameraVideoTracks.forEach(track => combined.addTrack(track));
+    
+    // Add audio tracks
+    if (!config.systemAudio || !config.mic || !mixedAudioTrack) {
+        audioTracks.forEach(track => combined.addTrack(track));
     }
     if (mixedAudioTrack) {
         combined.addTrack(mixedAudioTrack);

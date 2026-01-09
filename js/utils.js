@@ -1239,7 +1239,8 @@ export const PermissionManager = {
      */
     async requestScreenShare(options = {}, showToast = null) {
         return this.requestWithRetry('screen', async () => {
-            const controller = new CaptureController();
+            // CaptureController is only supported in Chrome/Edge, not Safari
+            const controller = window.CaptureController ? new CaptureController() : null;
             return navigator.mediaDevices.getDisplayMedia({
                 video: true,
                 audio: options.audio || false,
