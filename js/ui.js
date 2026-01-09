@@ -1336,8 +1336,9 @@ export function setupEventListeners() {
     
     // Recording controls
     elements.startBtn?.addEventListener('click', async () => {
-        // Check if this is Safari - Safari requires getDisplayMedia to be called directly
+        // Check browser type for specific handling
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isFirefox = /^((?!seamonkey|chrome|android).)*firefox/i.test(navigator.userAgent) || navigator.userAgent.toLowerCase().includes('firefox');
         
         if (isSafari && AppConfig.config.screen) {
             // Safari path: call getDisplayMedia directly from user gesture
@@ -1355,6 +1356,14 @@ export function setupEventListeners() {
                 } else {
                     showToast(`Screen share failed: ${err.message}`, 'error');
                 }
+                return;
+            }
+        }
+        
+        // Firefox-specific: Ensure we're in a secure context and mediaDevices is available
+        if (isFirefox) {
+            if (!navigator.mediaDevices?.getDisplayMedia) {
+                showToast('Screen sharing not supported in this browser.', 'error');
                 return;
             }
         }
