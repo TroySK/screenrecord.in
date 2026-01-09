@@ -1342,18 +1342,10 @@ export function setupEventListeners() {
         if (isSafari && AppConfig.config.screen) {
             // Safari path: call getDisplayMedia directly from user gesture
             try {
-                // CaptureController is only available in Chrome/Edge
-                const options = {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
                     video: true,
-                    audio: AppConfig.config.systemAudio || false
-                };
-                
-                // Only add controller if it exists (Chrome/Edge)
-                if (window.CaptureController) {
-                    options.controller = new CaptureController();
-                }
-                
-                const screenStream = await navigator.mediaDevices.getDisplayMedia(options);
+                    audio: false // Safari doesn't support system audio
+                });
                 
                 // Store the screen stream for use in recording
                 window._safariScreenStream = screenStream;
@@ -1744,6 +1736,16 @@ export async function initUI() {
             elements.systemAudioToggle.parentElement.style.cursor = 'not-allowed';
         }
         showToast('System audio may need browser extension.', 'info');
+    }
+    
+    // Check if this is Safari - Safari doesn't support system audio in getDisplayMedia
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (isSafari && elements.systemAudioToggle) {
+        elements.systemAudioToggle.disabled = true;
+        elements.systemAudioToggle.checked = false;
+        elements.systemAudioToggle.parentElement.style.opacity = '0.5';
+        elements.systemAudioToggle.parentElement.style.cursor = 'not-allowed';
+        AppConfig.setConfig('systemAudio', false);
     }
     
     // Check media devices support using Capabilities

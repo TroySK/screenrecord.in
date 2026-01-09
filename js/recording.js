@@ -358,8 +358,13 @@ export async function getMediaStream(config, showToast = null) {
             const videoTrack = RecordingState.screenStream.getVideoTracks()[0];
             const settings = videoTrack.getSettings();
             
-            // Note: CaptureController is now handled in ui.js for Safari compatibility
-            // This check is kept for reference but not used since we handle it earlier
+            if (settings.displaySurface === 'browser' || settings.displaySurface === 'window') {
+                // CaptureController is only supported in Chrome/Edge, not Safari
+                if (window.CaptureController) {
+                    const controller = new CaptureController();
+                    controller.setFocusBehavior('no-focus-change');
+                }
+            }
             
             streams.push(RecordingState.screenStream);
         } catch (err) {

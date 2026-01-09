@@ -1238,14 +1238,23 @@ export const PermissionManager = {
      * @returns {Promise<MediaStream>} - Screen stream
      */
     async requestScreenShare(options = {}, showToast = null) {
+        // Skip if we already have a screen stream (Safari handles this in UI)
+        if (window._safariScreenStream) {
+            return window._safariScreenStream;
+        }
+        
         return this.requestWithRetry('screen', async () => {
-            // CaptureController is only supported in Chrome/Edge, not Safari
-            const controller = window.CaptureController ? new CaptureController() : null;
-            return navigator.mediaDevices.getDisplayMedia({
+            const getDisplayMediaOptions = {
                 video: true,
-                audio: options.audio || false,
-                controller: controller
-            });
+                audio: options.audio || false
+            };
+            
+            // Only use CaptureController if available (Chrome/Edge)
+            if (window.CaptureController) {
+                getDisplayMediaOptions.controller = new CaptureController();
+            }
+            
+            return navigator.mediaDevices.getDisplayMedia(getDisplayMediaOptions);
         }, { showToast, maxRetries: 1 });
     },
     
