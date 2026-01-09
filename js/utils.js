@@ -1208,7 +1208,6 @@ export const PermissionManager = {
             // Show user education message
             if (education && showToast) {
                 showToast(education.message, 'info');
-                console.info(`[Permission] User education shown for ${feature}`);
             }
             
             // Retry once after education

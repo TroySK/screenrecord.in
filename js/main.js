@@ -247,8 +247,6 @@ export function adaptUIForCapabilities() {
 // ============================================
 
 export async function initApp() {
-    console.log('Initializing ScreenRecord application...');
-    
     // Check compatibility
     const compatibility = checkBrowserCompatibility();
     if (!compatibility.compatible) {
@@ -270,7 +268,6 @@ export async function initApp() {
     try {
         const ui = await ModuleRegistry.loadUI();
         await ui.initUI();
-        console.log('Application initialized successfully');
     } catch (err) {
         console.error('Failed to initialize application:', err);
         
@@ -399,7 +396,6 @@ async function initPROModal() {
     try {
         const { PROModal } = await import('./pro-modal.js');
         new PROModal();
-        console.log('PRO modal initialized');
     } catch (err) {
         console.error('Failed to initialize PRO modal:', err);
     }

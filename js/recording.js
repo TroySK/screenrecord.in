@@ -345,7 +345,6 @@ export async function getMediaStream(config, showToast = null) {
     
     if (config.screen) {
         try {
-            console.log('[Recording] Requesting screen share...');
             // Check if we have a pre-acquired screen stream (Safari)
             if (window._safariScreenStream) {
                 RecordingState.screenStream = window._safariScreenStream;
@@ -357,7 +356,6 @@ export async function getMediaStream(config, showToast = null) {
             }
             
             if (RecordingState.screenStream) {
-                console.log('[Recording] Screen stream obtained:', RecordingState.screenStream.getVideoTracks().map(t => ({ label: t.label, displaySurface: t.getSettings().displaySurface })));
                 
                 const videoTrack = RecordingState.screenStream.getVideoTracks()[0];
                 const settings = videoTrack.getSettings();
@@ -387,10 +385,8 @@ export async function getMediaStream(config, showToast = null) {
     
     if (config.camera) {
         try {
-            console.log('[Recording] Requesting camera access...');
             RecordingState.cameraStream = await PermissionManager.requestCamera({}, showToast);
             if (RecordingState.cameraStream) {
-                console.log('[Recording] Camera stream obtained:', RecordingState.cameraStream.getVideoTracks().map(t => t.label));
                 streams.push(RecordingState.cameraStream);
             } else {
                 console.error('[Recording] Camera stream is null');
@@ -496,7 +492,6 @@ export async function startRecording(config, showToast = null) {
             // Screen + Camera overlay mode
             // Identify tracks by displaySurface to handle Safari track order issues
             const videoTracks = RecordingState.mediaStream.getVideoTracks();
-            console.log('[Recording] All video tracks:', videoTracks.map((t, i) => ({ index: i, label: t.label, displaySurface: t.getSettings().displaySurface })));
             
             // More robust track identification for Firefox
             // Screen tracks have displaySurface set to 'monitor', 'window', or 'browser'
@@ -514,12 +509,8 @@ export async function startRecording(config, showToast = null) {
                 return label.includes('camera') || label.includes('webcam') || label.includes('facetime') || label.includes('video');
             });
             
-            console.log('[Recording] Identified screen track:', screenTrackInfo?.label, screenTrackInfo?.getSettings()?.displaySurface);
-            console.log('[Recording] Identified camera track:', cameraTrackInfo?.label, cameraTrackInfo?.getSettings()?.displaySurface);
-            
             // Fallback: if we only have 1 track, we have a problem
             if (videoTracks.length < 2) {
-                console.error('[Recording] Expected 2 video tracks but got:', videoTracks.length);
                 ErrorHandler.handle(null, 'Failed to get both screen and camera tracks. Please try again.', showToast);
                 return false;
             }
@@ -530,7 +521,6 @@ export async function startRecording(config, showToast = null) {
             
             // Ensure we don't use the same track for both
             if (originalScreenTrack === originalCameraTrack && videoTracks.length >= 2) {
-                console.warn('[Recording] Same track identified for both screen and camera, using index-based fallback');
                 // Use screen stream track for screen, camera stream track for camera
                 const screenTracks = RecordingState.screenStream?.getVideoTracks() || [];
                 const cameraTracks = RecordingState.cameraStream?.getVideoTracks() || [];
@@ -545,9 +535,6 @@ export async function startRecording(config, showToast = null) {
             
             const screenTrack = originalScreenTrack.clone();
             const cameraTrack = originalCameraTrack.clone();
-            
-            console.log('[Recording] Screen track settings:', originalScreenTrack.getSettings());
-            console.log('[Recording] Camera track settings:', originalCameraTrack.getSettings());
             
             const screenSettings = originalScreenTrack.getSettings();
             const cameraSettings = originalCameraTrack.getSettings();
