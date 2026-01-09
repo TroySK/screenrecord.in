@@ -479,8 +479,14 @@ export async function startRecording(config, showToast = null) {
         
         if (config.screen && config.camera) {
             // Screen + Camera overlay mode
-            const originalScreenTrack = RecordingState.mediaStream.getVideoTracks()[0];
-            const originalCameraTrack = RecordingState.mediaStream.getVideoTracks()[1];
+            // Identify tracks by displaySurface to handle Safari track order issues
+            const videoTracks = RecordingState.mediaStream.getVideoTracks();
+            const screenTrackInfo = videoTracks.find(t => t.getSettings().displaySurface === 'monitor' || t.getSettings().displaySurface === 'window' || t.getSettings().displaySurface === 'browser');
+            const cameraTrackInfo = videoTracks.find(t => t.getSettings().displaySurface === undefined);
+            
+            // Fallback to index-based if displaySurface not available
+            const originalScreenTrack = screenTrackInfo || videoTracks[0];
+            const originalCameraTrack = cameraTrackInfo || videoTracks[1];
             
             const screenTrack = originalScreenTrack.clone();
             const cameraTrack = originalCameraTrack.clone();
