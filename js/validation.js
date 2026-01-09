@@ -51,9 +51,9 @@ export const RecordingConfigValidator = {
     validate(config) {
         const result = new ValidationResult();
 
-        // Check if at least one input is selected
-        if (!config.screen && !config.camera && !config.mic) {
-            result.addError('Please select at least one input: screen, camera, or microphone.');
+        // Check if screen or camera is selected (at least one required)
+        if (!config.screen && !config.camera) {
+            result.addError('Please select screen or camera to start recording.');
         }
 
         // Validate screen recording configuration
@@ -356,7 +356,8 @@ export const DurationValidator = {
 
 export const ValidationMessages = {
     // Recording configuration messages
-    NO_INPUT_SELECTED: 'Please select at least one input (screen, camera, or microphone).',
+    NO_INPUT_SELECTED: 'Please select screen or camera to start recording.',
+    SCREEN_OR_CAMERA_REQUIRED: 'Please select screen or camera to start recording.',
     SCREEN_SHARING_UNSUPPORTED: 'Screen sharing is not supported on this device or browser.',
     CAMERA_UNSUPPORTED: 'Camera access is not supported on this browser.',
     MICROPHONE_UNSUPPORTED: 'Microphone access is not supported on this browser.',

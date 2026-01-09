@@ -916,8 +916,9 @@ export function updateConfigSummary() {
         .map(([k]) => k.replace(/([A-Z])/g, ' $1').trim())
         .join(', ');
     
-    elements.configSummary.textContent = active ? `Selected: ${active}` : 'Select inputs to start';
-    elements.startBtn.disabled = !Object.values(config).some(v => v);
+    elements.configSummary.textContent = active ? `Selected: ${active}` : 'Select screen or camera to start';
+    // Start button is enabled only when screen or camera is selected
+    elements.startBtn.disabled = !config.screen && !config.camera;
 }
 
 export function updateToggles(disabled = true) {
