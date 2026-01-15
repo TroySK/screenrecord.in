@@ -2507,10 +2507,6 @@ img, video {
 }
 
 @media (max-width: 480px) {
-    .logo-text {
-        display: none;
-    }
-
     .saved-card-thumbnail {
         height: 100px;
     }
